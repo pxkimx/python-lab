@@ -1,0 +1,482 @@
+@chapter Working with sequences
+@blurb Treat DNA as text: pick out bases and codons, tidy and count, transcribe, and build reverse complements.
+@icon dna
+
+=== lesson indexing
+title: Positions: picking out a single base
+minutes: 7
+--- text
+A string is a row of characters, and every character has a **position**, called its **index**. You read one with square brackets:
+
+```python
+seq = "ATGGAGACCCCG"
+print(seq[0])    # A  (the first base)
+print(seq[1])    # T
+print(seq[-1])   # G  (the last base)
+```
+
+The one thing to remember: **Python counts from 0**, biologists count from 1.
+
+| Biologist says | Python writes |
+|---|---|
+| base 1 (the first) | `seq[0]` |
+| base 2 | `seq[1]` |
+| base *n* | `seq[n - 1]` |
+| the last base | `seq[-1]` |
+| the second-to-last base | `seq[-2]` |
+
+Negative indexes count from the end, which is handy when you don't know (or care) how long the sequence is.
+
+Asking for a position that doesn't exist, like `seq[100]` on a 12-base string, stops the program with an `IndexError`.
+
+> **In the lab:** when a paper says "the mutation is at position 1824", that is `seq[1823]` in Python. Getting this off by one is the most common sequence bug there is, so always do the `- 1` on purpose.
+--- example
+seq = "ATGGAGACCCCGTCC"   # the start of human LMNA
+print("first base:", seq[0])
+print("second base:", seq[1])
+print("last base:", seq[-1])
+
+position = 8                       # biologist's position
+print(f"base {position} is {seq[position - 1]}")
+print("length:", len(seq))
+--- task
+This is the start of the human *LMNA* coding sequence (it encodes the first 11 amino acids of lamin A):
+
+```python
+seq = "ATGGAGACCCCGTCCCAGCGGCGCGCCACCCGC"
+```
+
+1. Store the **first** base in a variable called `first`.
+2. Store the **last** base in a variable called `last` (use a negative index).
+3. Store the base at **position 12** (counting the way a biologist does, from 1) in a variable called `base12`.
+4. Print all three.
+--- starter
+seq = "ATGGAGACCCCGTCCCAGCGGCGCGCCACCCGC"
+
+first =
+last =
+base12 =
+
+--- check
+seq = "ATGGAGACCCCGTCCCAGCGGCGCGCCACCCGC"
+if ns.get("seq") != seq:
+    fail("Keep the sequence exactly as given in the variable seq.")
+for name in ("first", "last", "base12"):
+    if name not in ns:
+        fail(f"Create a variable called {name}.")
+if ns["first"] != "A":
+    fail("first should be the very first base. Remember Python starts counting at 0.")
+if ns["last"] != "C":
+    fail("last should be the final base. A negative index counts from the end: which number means 'the last one'?")
+if ns["base12"] == seq[12]:
+    fail("Off by one! You took base 13. Position 12 for a biologist is index 11 in Python.")
+if ns["base12"] != seq[11]:
+    fail("base12 isn't right yet. Position n (counting from 1) is seq[n - 1].")
+if "G" not in out or "A" not in out or "C" not in out:
+    fail("All three are correct. Now print them so you can see them.")
+ok("A, C and G. You now convert between biologist positions and Python indexes on purpose, which saves many headaches.")
+--- hint
+The first base is `seq[0]` and the last is `seq[-1]`.
+--- hint
+Position 12 for a biologist is index `12 - 1` in Python.
+--- solution
+seq = "ATGGAGACCCCGTCCCAGCGGCGCGCCACCCGC"
+
+first = seq[0]
+last = seq[-1]
+base12 = seq[11]
+print(first, last, base12)
+--- explain
+`seq[0]` is the first character and `seq[-1]` the last. For position 12 we subtract one: `seq[11]`. Writing it as `seq[12 - 1]` is also fine, and makes your intention obvious to whoever reads the code.
+
+=== lesson slicing
+title: Slicing: codons and fragments
+minutes: 8
+--- text
+A **slice** takes a stretch of a string: `seq[start:stop]`.
+
+```python
+seq = "ATGGAGACCCCG"
+print(seq[0:3])    # ATG  (indexes 0, 1, 2)
+print(seq[3:6])    # GAG
+```
+
+The rule: the slice **includes `start` but stops just before `stop`**. So `seq[0:3]` is three characters, and `stop - start` is always the length you get.
+
+Shortcuts:
+
+| Slice | Meaning |
+|---|---|
+| `seq[:3]` | from the beginning up to index 3 (the first 3 bases) |
+| `seq[3:]` | from index 3 to the end |
+| `seq[-3:]` | the last 3 bases |
+| `seq[::3]` | every third base (the third number is the **step**) |
+| `seq[::-1]` | the whole string backwards |
+
+The nice part: converting biologist positions is easy. **Bases 4 to 12** (inclusive, counting from 1) is `seq[3:12]`. Subtract 1 from the start, keep the end as it is.
+
+Slices never raise an error if you go past the end; they just give you what's there.
+
+> **In the lab:** codon *n* (counting from 1) is `seq[3*(n-1) : 3*n]`. The second codon is `seq[3:6]`, the third is `seq[6:9]`.
+--- example
+seq = "ATGGAGACCCCGTCCCAG"
+print("start codon:", seq[0:3])
+print("codon 2:", seq[3:6])
+print("codon 3:", seq[6:9])
+print("last codon:", seq[-3:])
+print("bases 4-9:", seq[3:9])
+print("first base of each codon:", seq[::3])
+print("backwards:", seq[::-1])
+--- task
+Using the same *LMNA* start:
+
+```python
+seq = "ATGGAGACCCCGTCCCAGCGGCGCGCCACCCGC"
+```
+
+1. Store the **start codon** (first three bases) in `start_codon`.
+2. Store the **third codon** in `codon3`.
+3. Store the **last codon** in `last_codon`.
+4. Store **bases 4 to 12** (biologist positions, both ends included) in `region`.
+5. Print `region` and its length with `len()`.
+--- starter
+seq = "ATGGAGACCCCGTCCCAGCGGCGCGCCACCCGC"
+
+start_codon =
+codon3 =
+last_codon =
+region =
+
+--- check
+seq = "ATGGAGACCCCGTCCCAGCGGCGCGCCACCCGC"
+for name in ("start_codon", "codon3", "last_codon", "region"):
+    if name not in ns:
+        fail(f"Create a variable called {name}.")
+if ns["start_codon"] != "ATG":
+    fail("start_codon should be the first three bases: a slice from 0 up to (not including) 3.")
+if ns["codon3"] == seq[9:12] or ns["codon3"] == seq[3:6]:
+    fail("codon3 is a neighbouring codon. The third codon covers indexes 6, 7 and 8.")
+if ns["codon3"] != "ACC":
+    fail("codon3 isn't right yet. Codon n is seq[3*(n-1):3*n].")
+if ns["last_codon"] != "CGC":
+    fail("last_codon should be the final three bases. A negative start, with nothing after the colon, reaches the end.")
+r = ns["region"]
+if r == seq[4:12] or r == seq[3:11]:
+    fail("region is one base short. Bases 4-12 are 9 bases: subtract 1 from the start only.")
+if r == seq[4:13] or r == seq[3:13]:
+    fail("region is shifted or one base too long. Subtract 1 from the start position, but keep the end position as it is.")
+if r != seq[3:12]:
+    fail("region should be bases 4 to 12. Start index = 4 - 1, stop index = 12.")
+if r not in out or "9" not in out:
+    fail("All variables are right. Now print region and len(region).")
+ok("GAGACCCCG, 9 bases. Slicing is how you pull out codons, primer sites and domains from any sequence.")
+--- hint
+`seq[0:3]` gives the first codon. The third codon starts at index 6.
+--- hint
+For the last codon, try `seq[-3:]`. For bases 4 to 12, the slice is `seq[3:12]`: why does the end stay at 12?
+--- solution
+seq = "ATGGAGACCCCGTCCCAGCGGCGCGCCACCCGC"
+
+start_codon = seq[0:3]
+codon3 = seq[6:9]
+last_codon = seq[-3:]
+region = seq[3:12]
+print(region, len(region))
+--- explain
+Because a slice stops *before* its end index, "bases 4 to 12" becomes `seq[3:12]`: the start moves back by one (Python counts from 0), and the end stays the same. As a sanity check, 12 - 3 = 9 bases, which matches 4..12 inclusive.
+
+=== lesson string_methods
+title: String methods: tidy, count and find
+minutes: 9
+--- text
+Strings come with built-in tools called **methods**. You call them with a dot: `seq.upper()`.
+
+| Method | What it does | Example result |
+|---|---|---|
+| `s.upper()` / `s.lower()` | change case | `"atg".upper()` → `"ATG"` |
+| `s.strip()` | remove spaces and line breaks at both ends | `"  ATG\n".strip()` → `"ATG"` |
+| `s.count("G")` | how many times something occurs | `"GGCA".count("G")` → `2` |
+| `s.find("GAATTC")` | index of the first match, or `-1` if absent | |
+| `s.replace("a", "b")` | swap every match | `"ATTA".replace("T", "U")` → `"AUUA"` |
+| `s.startswith("ATG")` | does it begin with this? | `True` / `False` |
+| `s.endswith("TAA")` | does it end with this? | `True` / `False` |
+
+Methods **don't change the original**; they give you a new string. To keep the result, store it:
+
+```python
+seq = "  atggcc \n"
+seq = seq.strip().upper()     # methods can be chained, left to right
+print(seq)                    # ATGGCC
+```
+
+**GC content** is the classic use of `count`:
+
+```python
+gc = (seq.count("G") + seq.count("C")) / len(seq) * 100
+```
+
+> **In the lab:** sequences copied from a browser or a PDF often have stray spaces, line breaks and lowercase letters. `strip().upper()` is the first thing to do with any sequence a human touched. Note that `find` is case sensitive: `"gaattc"` will not match `"GAATTC"`.
+--- example
+raw = "  atgcgcgcatataaggc \n"
+seq = raw.strip().upper()
+print(seq, len(seq))
+print("G:", seq.count("G"), "C:", seq.count("C"))
+gc = (seq.count("G") + seq.count("C")) / len(seq) * 100
+print(f"GC content: {gc:.1f}%")
+print("TATA box at index", seq.find("TATA"))
+print("EcoRI site at index", seq.find("GAATTC"))   # -1 means not found
+print("starts with ATG?", seq.startswith("ATG"))
+--- task
+You pasted a cloning insert from an email and it came out messy:
+
+```python
+raw = "  atgcgaattcggcgcatggatcctaa  \n"
+```
+
+1. Make a tidy version, without spaces and in uppercase, and store it in `clean`.
+2. Calculate the GC content as a **percentage**, rounded to **1 decimal place**, and store it in `gc`.
+3. Store the index of the EcoRI site `GAATTC` in `ecori` and of the BamHI site `GGATCC` in `bamhi`.
+4. Print a line like `GC content: 50.0%`.
+--- starter
+raw = "  atgcgaattcggcgcatggatcctaa  \n"
+
+clean =
+
+--- check
+expected = "ATGCGAATTCGGCGCATGGATCCTAA"
+if "clean" not in ns:
+    fail("Create a variable called clean.")
+c = ns["clean"]
+if not isinstance(c, str):
+    fail("clean should be a string (the tidied sequence).")
+if c.upper() == expected and c != expected:
+    fail("Nearly: clean still has lowercase letters. Use .upper().")
+if c.strip() == expected and c != expected:
+    fail("clean still has spaces or a line break at the ends. Use .strip().")
+if c != expected:
+    fail("clean should be raw with the spaces removed and in uppercase: raw.strip().upper()")
+if "gc" not in ns:
+    fail("Create a variable called gc for the GC percentage.")
+g = ns["gc"]
+if not isinstance(g, (int, float)):
+    fail("gc should be a number, not text. Calculate it with count() and len().")
+if abs(g - 0.5) < 1e-6:
+    fail("gc is a fraction (0.5). Multiply by 100 to make it a percentage.")
+if abs(g - 50.0) > 0.05:
+    fail(f"gc is {g}. Count the G's and the C's in clean, add them, divide by len(clean), multiply by 100.")
+for name, site, pos in (("ecori", "GAATTC", 4), ("bamhi", "GGATCC", 17)):
+    if name not in ns:
+        fail(f"Create a variable called {name}.")
+    if ns[name] == -1:
+        fail(f"{name} is -1, which means 'not found'. Search in clean (uppercase), not in raw.")
+    if ns[name] == pos + 1:
+        fail(f"{name} is the biologist's position. For this task keep Python's index, exactly what .find() returns.")
+    if ns[name] != pos:
+        fail(f"{name} should be clean.find(\"{site}\").")
+if "50.0%" not in out.replace(" %", "%"):
+    fail("Everything is calculated. Now print the line, e.g. f\"GC content: {gc}%\".")
+ok("50% GC, EcoRI at index 4, BamHI at index 17. That is exactly what a restriction-mapping tool does under the hood.")
+--- hint
+Chain the methods: `raw.strip().upper()`.
+--- hint
+`gc = round((clean.count("G") + clean.count("C")) / len(clean) * 100, 1)`, then use `clean.find(...)` for each site.
+--- solution
+raw = "  atgcgaattcggcgcatggatcctaa  \n"
+
+clean = raw.strip().upper()
+gc = round((clean.count("G") + clean.count("C")) / len(clean) * 100, 1)
+ecori = clean.find("GAATTC")
+bamhi = clean.find("GGATCC")
+print(f"GC content: {gc}%")
+print("EcoRI at", ecori, "and BamHI at", bamhi)
+
+=== lesson transcription
+title: Transcription: DNA to RNA
+minutes: 6
+--- text
+In the cell, the mRNA has the same sequence as the **coding strand** of the DNA, except that every **T** becomes **U**.
+
+In Python that's a single method call:
+
+```python
+dna = "ATGGCCTAA"
+rna = dna.replace("T", "U")
+print(rna)    # AUGGCCUAA
+```
+
+`replace` swaps **every** occurrence, not just the first. It's also case sensitive, so tidy the sequence with `.upper()` first.
+
+Combine it with what you already know:
+
+```python
+print(rna.startswith("AUG"))   # True: it has a start codon
+print(rna.endswith("UAA"))     # True: it ends in a stop codon
+print(rna[3:6])                # GCC, the second codon
+```
+
+`True` and `False` are Python's yes/no values (the `bool` type from chapter 1). You'll use them a lot in the chapter on decisions.
+
+> **In the lab:** you'll rarely need RNA letters for analysis (most databases keep mRNA as DNA letters), but you will constantly use `replace` to clean data: swap commas for decimal points, remove dashes from aligned sequences, or rename samples.
+--- example
+dna = "atggagaccccgtcctaa"
+rna = dna.upper().replace("T", "U")
+print(rna)
+print("start codon present:", rna.startswith("AUG"))
+print("ends in UAA:", rna.endswith("UAA"))
+print("U count:", rna.count("U"), "T count:", rna.count("T"))
+
+aligned = "ATG--GCC-TAA"
+print(aligned.replace("-", ""))   # remove alignment gaps
+--- task
+Here is the coding strand of a short open reading frame, as it came out of a primer-design tool:
+
+```python
+dna = "atgaaactggtttagtaa"
+```
+
+1. Make the mRNA version: uppercase, with every T changed to U. Store it in `rna`.
+2. Store `True` or `False` in `has_start`, by checking with a method whether `rna` starts with `AUG`.
+3. Store the number of U's in `rna` in `u_count`.
+4. Print `rna`.
+--- starter
+dna = "atgaaactggtttagtaa"
+
+rna =
+
+--- check
+if "rna" not in ns:
+    fail("Create a variable called rna.")
+r = ns["rna"]
+if not isinstance(r, str):
+    fail("rna should be a string.")
+if r == "atgaaactggtttagtaa":
+    fail("Nothing was replaced, because dna is lowercase and replace is case sensitive. Uppercase first, then replace.")
+if r != "AUGAAACUGGUUUAGUAA" and r.upper() == "AUGAAACUGGUUUAGUAA":
+    fail("Make rna uppercase as well: .upper() before the .replace().")
+if r == "ATGAAACTGGTTTAGTAA":
+    fail("rna is uppercase but still has T's. Replace every T with U.")
+if r != "AUGAAACUGGUUUAGUAA":
+    fail("rna should be dna in uppercase with every T changed to U.")
+if ns.get("has_start") is not True:
+    fail("has_start should be True. Use rna.startswith(\"AUG\") rather than typing True yourself.")
+if ns.get("u_count") != 6:
+    fail("u_count should be the number of U's in rna. Use rna.count(\"U\").")
+if r not in out:
+    fail("All correct. Now print(rna).")
+ok("AUGAAACUGGUUUAGUAA, 6 U's. Method chaining like .upper().replace() is the bread and butter of data cleaning.")
+--- hint
+`dna.upper().replace("T", "U")` does both steps in one go.
+--- hint
+`rna.startswith("AUG")` gives True or False; `rna.count("U")` counts.
+--- solution
+dna = "atgaaactggtttagtaa"
+
+rna = dna.upper().replace("T", "U")
+has_start = rna.startswith("AUG")
+u_count = rna.count("U")
+print(rna)
+print(has_start, u_count)
+
+=== lesson revcomp
+title: The reverse complement
+minutes: 9
+--- text
+DNA has two strands. To read the other strand you need the **reverse complement**: swap each base for its partner (A↔T, G↔C), then read it backwards.
+
+```
+5'-ATGGCC-3'     the strand you have
+3'-TACCGG-5'     its complement
+5'-GGCCAT-3'     read 5' to 3': the reverse complement
+```
+
+**Reversing** is a slice with step -1: `seq[::-1]`.
+
+**Complementing** is the tricky part. The obvious idea, chaining `replace`, has a trap:
+
+```python
+seq = "AATT"
+print(seq.replace("A", "T").replace("T", "A"))   # AAAA  (wrong!)
+```
+
+After the first replace, the original T's and the new T's look the same, so the second replace turns them all into A's.
+
+The right tool is a **translation table**: `str.maketrans("ACGT", "TGCA")` pairs each letter in the first string with the letter at the same position in the second, and `translate` swaps them **all at once**:
+
+```python
+table = str.maketrans("ACGT", "TGCA")
+print("AATT".translate(table))          # TTAA
+print("ATGGCC".translate(table)[::-1])  # GGCCAT
+```
+
+> **In the lab:** reverse primers are always written as the reverse complement of the template's top strand. When a "reverse primer" doesn't bind in your in-silico PCR, the first thing to check is whether someone only reversed it, or only complemented it.
+--- example
+seq = "ATGGCCAATT"
+
+# The trap: replace one letter at a time
+print("chained replace:", seq.replace("A", "T").replace("T", "A"))
+
+# The right way
+table = str.maketrans("ACGT", "TGCA")
+comp = seq.translate(table)
+print("complement:        ", comp)
+print("reverse complement:", comp[::-1])
+
+# A sequence and its reverse complement have the same GC content
+print(seq.count("G") + seq.count("C"), comp.count("G") + comp.count("C"))
+--- task
+Your forward primer is:
+
+```python
+primer = "GCTGAGTACAACCTGCGCTC"
+```
+
+1. Create a translation table with `str.maketrans` and store it in `table`.
+2. Store the **complement** of `primer` in `comp`.
+3. Store the **reverse complement** in `rc`.
+4. Print `rc`.
+--- starter
+primer = "GCTGAGTACAACCTGCGCTC"
+
+table =
+comp =
+rc =
+
+--- check
+primer = "GCTGAGTACAACCTGCGCTC"
+good_comp = "CGACTCATGTTGGACGCGAG"
+good_rc = good_comp[::-1]
+if ns.get("primer") != primer:
+    fail("Keep the primer exactly as given in the variable primer.")
+if "table" not in ns or not isinstance(ns["table"], dict):
+    fail("Create table with str.maketrans(\"ACGT\", \"TGCA\").")
+for name in ("comp", "rc"):
+    if name not in ns:
+        fail(f"Create a variable called {name}.")
+c = ns["comp"]
+if c == primer[::-1]:
+    fail("comp is the primer reversed. Complementing means swapping each base for its partner; use primer.translate(table).")
+if c != good_comp:
+    fail("comp isn't the complement yet. Check your table: maketrans(\"ACGT\", \"TGCA\") pairs A-T, C-G, G-C, T-A.")
+r = ns["rc"]
+if r == good_comp:
+    fail("rc is only the complement. Now reverse it as well, with [::-1].")
+if r == primer[::-1]:
+    fail("rc is only reversed. It also needs to be complemented.")
+if r != good_rc:
+    fail("rc should be the complement, reversed.")
+if good_rc not in out:
+    fail("rc is right. Now print it.")
+ok("GAGCGCAGGTTGTACTCAGC. You just wrote the core of every primer-design and in-silico PCR tool.")
+--- hint
+`table = str.maketrans("ACGT", "TGCA")`, then `comp = primer.translate(table)`.
+--- hint
+Reverse a string with the slice `[::-1]`: `rc = comp[::-1]`.
+--- solution
+primer = "GCTGAGTACAACCTGCGCTC"
+
+table = str.maketrans("ACGT", "TGCA")
+comp = primer.translate(table)
+rc = comp[::-1]
+print(rc)
+--- explain
+`maketrans` builds the base-pairing rules once, and `translate` applies them to every base simultaneously, so there's no chance of a base being swapped twice. Reversing with `[::-1]` then gives the strand read 5' to 3'. The order doesn't matter: reversing first and complementing second gives the same answer.

@@ -1,0 +1,25 @@
+Python Lab — learn Python by building real lab tools
+by Paul H. Kim · https://paul-h-kim.com/software/python-lab
+
+1. Drag "Python Lab.app" into your Applications folder (or anywhere you like).
+
+2. Double-click it. Because the app is free and not registered with Apple, macOS
+   may say it "cannot be opened" or "cannot verify the developer" the first time:
+     - Click Done (or OK).
+     - Open System Settings → Privacy & Security, scroll down, and click
+       "Open Anyway" next to Python Lab. Confirm with your password.
+     - On macOS 14 or older you can instead right-click (Control-click) the app,
+       choose Open, then click Open.
+   You only need to do this once.
+
+3. The first start sets up Python's scientific libraries (numpy, pandas,
+   matplotlib) in ~/Library/Application Support/Python Lab. This needs internet
+   once and takes a minute or two. The course then opens in your web browser.
+
+Needs: a Mac with macOS 12 or newer and Python 3.9 or newer. Most Macs already
+have it; if not, macOS offers to install the "command line developer tools"
+(click Install), or get Python from https://www.python.org/downloads/ .
+
+Closing the browser tab quits the app. Your progress and code are saved on your
+Mac. The optional "Ask tutor" button uses Claude Code with your own Claude
+account; everything else works without it.

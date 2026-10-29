@@ -1,0 +1,587 @@
+@chapter Power tools from the standard library
+@blurb Python comes with a toolbox: statistics, pattern searching, counting, pairing and saving results. Learn to import and use it.
+@icon toolbox
+
+=== lesson math_stats
+title: import, math and statistics
+minutes: 10
+--- text
+Python ships with hundreds of ready-made **modules**: collections of functions that someone has already written and tested. This is called the **standard library**, and it's already installed. You only have to `import` what you need.
+
+```python
+import math
+print(math.sqrt(16))      # 4.0
+print(math.log2(8))       # 3.0
+```
+
+After `import math`, you use its functions with a dot: `math.something`. There are a few ways to import:
+
+| Code | Then you write |
+|---|---|
+| `import statistics` | `statistics.mean(values)` |
+| `from statistics import mean, stdev` | `mean(values)` |
+| `import statistics as st` | `st.mean(values)` |
+
+Imports go at the **top** of your program, so a reader sees at once which tools it uses.
+
+The two modules every lab analysis needs:
+
+| Function | What it gives you |
+|---|---|
+| `statistics.mean(x)` | the average |
+| `statistics.median(x)` | the middle value |
+| `statistics.stdev(x)` | the sample standard deviation (n − 1), like Excel's STDEV |
+| `math.sqrt(x)` | square root |
+| `math.log2(x)`, `math.log10(x)`, `math.log(x)` | logarithms (base 2, 10, e) |
+
+The **standard error of the mean** is SD / √n. The **log2 fold change** is `log2(treated / control)`: +1 means doubled, −1 means halved, 0 means no change.
+
+> **In the lab:** log2 fold changes are used everywhere (RNA-seq, proteomics) because up- and down-regulation become symmetric: 4× up is +2, 4× down is −2.
+--- example
+import math
+import statistics
+
+od = [0.512, 0.498, 0.530]
+m = statistics.mean(od)
+sd = statistics.stdev(od)
+sem = sd / math.sqrt(len(od))
+print(f"mean {m:.3f}, SD {sd:.4f}, SEM {sem:.4f}")
+print("4x up:  ", math.log2(4))
+print("4x down:", math.log2(1 / 4))
+--- task
+Western blot band intensities (normalised to actin) for three replicates of control and progerin-expressing cells are in the starter.
+
+1. Import `math` and `statistics` at the top.
+2. Compute `mean_control` and `mean_progerin` with `statistics.mean`.
+3. Compute `sd_progerin` (sample standard deviation) and `sem_progerin` (SD / √n).
+4. Compute `log2fc = log2(mean_progerin / mean_control)`.
+5. Print the results with sensible rounding.
+--- starter
+control = [1.00, 1.12, 0.95]
+progerin = [2.31, 2.05, 2.48]
+
+--- check
+import math, statistics
+c = [1.00, 1.12, 0.95]
+p = [2.31, 2.05, 2.48]
+want = {
+    "mean_control": statistics.mean(c),
+    "mean_progerin": statistics.mean(p),
+    "sd_progerin": statistics.stdev(p),
+    "sem_progerin": statistics.stdev(p) / math.sqrt(3),
+    "log2fc": math.log2(statistics.mean(p) / statistics.mean(c)),
+}
+for name, value in want.items():
+    if name not in ns:
+        fail(f"Create a variable called {name}.")
+    got = ns[name]
+    if not isinstance(got, (int, float)):
+        fail(f"{name} should be a number, but it is {got!r}.")
+    if abs(got - value) > 1e-4:
+        if name == "sd_progerin" and abs(got - statistics.pstdev(p)) < 1e-4:
+            fail("sd_progerin is the population SD (divides by n). Use statistics.stdev, which divides by n − 1 like most lab software.")
+        if name == "sem_progerin" and abs(got - statistics.stdev(p) / 3) < 1e-4:
+            fail("sem_progerin divides by n; the standard error divides by the square root of n: math.sqrt(len(progerin)).")
+        if name == "log2fc" and abs(got + value) < 1e-4:
+            fail("log2fc has the wrong sign: divide progerin by control, not the other way round.")
+        if name == "log2fc" and abs(got - math.log(statistics.mean(p) / statistics.mean(c))) < 1e-4:
+            fail("log2fc used the natural log. Use math.log2 for a log2 fold change.")
+        fail(f"{name} is {got:.4f}, which isn't right yet. Check the formula in the task.")
+if not out.strip():
+    fail("All values are right. Now print them.")
+ok(f"log2 fold change = {want['log2fc']:.2f}, i.e. about {2 ** want['log2fc']:.1f}x up. These two modules replace a lot of spreadsheet formulas.")
+--- hint
+`mean_control = statistics.mean(control)`; same pattern for progerin and for `statistics.stdev(progerin)`.
+--- hint
+`sem_progerin = sd_progerin / math.sqrt(len(progerin))` and `log2fc = math.log2(mean_progerin / mean_control)`.
+--- solution
+import math
+import statistics
+
+control = [1.00, 1.12, 0.95]
+progerin = [2.31, 2.05, 2.48]
+
+mean_control = statistics.mean(control)
+mean_progerin = statistics.mean(progerin)
+sd_progerin = statistics.stdev(progerin)
+sem_progerin = sd_progerin / math.sqrt(len(progerin))
+log2fc = math.log2(mean_progerin / mean_control)
+
+print(f"control  {mean_control:.3f}")
+print(f"progerin {mean_progerin:.3f} ± {sem_progerin:.3f} (SEM)")
+print(f"log2 fold change {log2fc:.2f}")
+
+=== lesson regex
+title: Finding patterns with regular expressions
+minutes: 14
+--- text
+`"GAATTC" in seq` tells you *whether* a site is there. To find **every** site and **where** it is, or to search for a *pattern* rather than a fixed word, use **regular expressions**, in the `re` module.
+
+```python
+import re
+seq = "TTGAATTCAAGGATCCTTGAATTC"
+for m in re.finditer("GAATTC", seq):
+    print("EcoRI at", m.start() + 1)    # m.start() counts from 0
+```
+
+`re.finditer(pattern, text)` gives you one **match** per hit. Each match knows:
+
+- `m.start()` — where it begins (counting from 0, like string positions)
+- `m.group()` — the text it matched
+
+The power of regular expressions is that a pattern can be flexible:
+
+| Pattern | Matches |
+|---|---|
+| `GAATTC` | exactly GAATTC |
+| `[ST]` | one S **or** T |
+| `[^P]` | any one character **except** P |
+| `.` | any one character |
+| `A{3,}` | three or more A's in a row |
+| `GG.CC` | GG, any base, CC |
+
+So the **N-glycosylation sequon** in proteins, *N, then anything but P, then S or T*, is simply `N[^P][ST]`.
+
+Two other handy functions: `re.findall(pattern, text)` returns just the matched texts as a list, and `re.search(pattern, text)` returns the first match (or `None`).
+
+> **In the lab:** this is how restriction-mapping and motif-scanning tools work under the hood. ScanProsite patterns like `N-{P}-[ST]-{P}` translate directly into regular expressions.
+--- example
+import re
+
+protein = "MKNLTVAGNPSAQNGTFRDNSS"
+for m in re.finditer("N[^P][ST]", protein):
+    print(m.group(), "at position", m.start() + 1)
+
+print(re.findall("A{3,}", "GCAAAAAGTCAATTAAAAAAAAC"))   # poly-A stretches
+--- task
+1. Read `plasmid.fasta` into one string called `plasmid` (skip the `>` header line, strip each line and join them together, as in the files chapter).
+2. Make a dictionary `sites` with two keys, `"EcoRI"` (`GAATTC`) and `"BamHI"` (`GGATCC`). Each value is a **list of positions where the site starts, counting from 1** (like a plasmid map).
+3. For the protein in the starter, make a list `sequons` with the starting position (from 1) of every N-glycosylation sequon `N[^P][ST]`.
+4. Print your results.
+--- starter
+import re
+
+protein = "MKNLTVLLAGNPSAQNGTFRDNSSWEVNPTEELKNVSGLY"
+
+plasmid = ""
+
+sites = {}
+sequons = []
+
+--- check
+import re
+seq = "".join(l.strip() for l in open("plasmid.fasta") if not l.startswith(">"))
+prot = "MKNLTVLLAGNPSAQNGTFRDNSSWEVNPTEELKNVSGLY"
+if not isinstance(ns.get("plasmid"), str) or not ns["plasmid"]:
+    fail("Read the plasmid sequence into a string called plasmid.")
+if ns["plasmid"].startswith(">") or "pDemo" in ns["plasmid"]:
+    fail("plasmid still contains the header line. Skip lines that start with '>'.")
+if "\n" in ns["plasmid"] or " " in ns["plasmid"]:
+    fail("plasmid contains newlines or spaces. Use line.strip() on each line before joining.")
+if ns["plasmid"] != seq:
+    fail(f"plasmid is {len(ns['plasmid'])} characters long, but the file holds a {len(seq)} bp sequence.")
+want = {e: [m.start() + 1 for m in re.finditer(s, seq)] for e, s in (("EcoRI", "GAATTC"), ("BamHI", "GGATCC"))}
+sites = ns.get("sites")
+if not isinstance(sites, dict):
+    fail("sites should be a dictionary with keys 'EcoRI' and 'BamHI'.")
+for enz in want:
+    if enz not in sites:
+        fail(f"sites has no key {enz!r}. Keys are case-sensitive.")
+    got = list(sites[enz])
+    if got == [p - 1 for p in want[enz]]:
+        fail(f"Your {enz} positions are counted from 0. Add 1 to m.start() so they match a plasmid map.")
+    if got != want[enz]:
+        fail(f"sites[{enz!r}] is {got}, but it should list {len(want[enz])} positions. Did you use the right site sequence?")
+ws = [m.start() + 1 for m in re.finditer("N[^P][ST]", prot)]
+got = ns.get("sequons")
+if not isinstance(got, list):
+    fail("Make a list called sequons.")
+if got == [p - 1 for p in ws]:
+    fail("Your sequon positions are counted from 0. Add 1 to m.start().")
+if got != ws:
+    fail(f"sequons is {got}, but there are {len(ws)} sequons. The pattern is N, then any letter except P, then S or T: 'N[^P][ST]'.")
+ok(f"{len(want['EcoRI'])} EcoRI sites, {len(want['BamHI'])} BamHI sites and {len(ws)} N-glycosylation sequons. You just wrote a tiny restriction mapper and motif scanner.")
+--- hint
+Reading the plasmid: loop over the lines of the file, skip those that start with `">"`, and add `line.strip()` to `plasmid`.
+--- hint
+For one enzyme: `[m.start() + 1 for m in re.finditer("GAATTC", plasmid)]` (or a loop that appends `m.start() + 1`).
+--- hint
+`sequons` uses the same idea with the pattern `"N[^P][ST]"` on `protein`.
+--- solution
+import re
+
+protein = "MKNLTVLLAGNPSAQNGTFRDNSSWEVNPTEELKNVSGLY"
+
+plasmid = ""
+with open("plasmid.fasta") as f:
+    for line in f:
+        if not line.startswith(">"):
+            plasmid += line.strip()
+
+sites = {}
+for enzyme, site in [("EcoRI", "GAATTC"), ("BamHI", "GGATCC")]:
+    sites[enzyme] = [m.start() + 1 for m in re.finditer(site, plasmid)]
+    print(enzyme, sites[enzyme])
+
+sequons = [m.start() + 1 for m in re.finditer("N[^P][ST]", protein)]
+print("N-glycosylation sequons at", sequons)
+
+=== lesson collections_tools
+title: Counting and grouping with collections
+minutes: 12
+--- text
+Two patterns come up in almost every analysis: **counting things** and **grouping things**. You've done both with plain dictionaries. The `collections` module makes them one-liners.
+
+### Counter: count anything
+
+```python
+from collections import Counter
+bases = Counter("ATGGCCATTG")
+print(bases)                  # Counter({'G': 3, 'T': 3, 'A': 2, 'C': 2})
+print(bases["G"])             # 3
+print(bases.most_common(2))   # [('G', 3), ('T', 3)]
+```
+
+Give `Counter` any list (or string) and it counts each different item. Asking for something that isn't there gives `0`, not a `KeyError`. Codons, k-mers, cell types, peptide sequences: same idea.
+
+### defaultdict: group without checking first
+
+Grouping replicates with a normal dictionary needs an `if key not in d:` check every time. A `defaultdict(list)` creates an empty list automatically the first time you use a new key:
+
+```python
+from collections import defaultdict
+groups = defaultdict(list)
+groups["ctrl"].append(0.49)     # no KeyError: the list is made for you
+groups["ctrl"].append(0.50)
+groups["drug"].append(0.66)
+print(dict(groups))              # {'ctrl': [0.49, 0.5], 'drug': [0.66]}
+```
+
+> **In the lab:** "group the replicates by sample, then average each group" is the first step of nearly every plate-reader, qPCR or imaging analysis.
+--- example
+from collections import Counter, defaultdict
+
+seq = "ATGAAAGCTAAAGCTTAA"
+codons = [seq[i:i + 3] for i in range(0, len(seq) - 2, 3)]
+print(codons)
+print(Counter(codons).most_common(2))
+
+kmers = Counter(seq[i:i + 2] for i in range(len(seq) - 1))   # overlapping 2-mers
+print("AA dinucleotides:", kmers["AA"])
+
+groups = defaultdict(list)
+for name, value in [("ctrl", 0.49), ("drug", 0.66), ("ctrl", 0.50)]:
+    groups[name].append(value)
+print(dict(groups))
+--- task
+**Part 1, codons.**
+
+1. Split the sequence `seq` in the starter into codons (non-overlapping groups of 3, starting at position 0).
+2. Count them in a `Counter` called `codon_counts`.
+3. Store the 3 most common codons (with their counts) in `top3`, using `.most_common(3)`.
+
+**Part 2, replicates.** `plate_reader.csv` has columns `well,sample,replicate,absorbance`.
+
+4. Read it, skipping the header line, and build a `defaultdict(list)` called `by_sample` that maps each sample name to its list of absorbance values (as floats).
+5. Print each sample with the mean of its replicates.
+--- starter
+from collections import Counter, defaultdict
+
+seq = "ATGGCTGCTAAAGAAGCTCTGAAAGAACTGGCTAAAGCTGAAGAACTGTAA"
+
+codon_counts = Counter()
+top3 = []
+
+by_sample = defaultdict(list)
+
+--- check
+from collections import Counter
+seq = "ATGGCTGCTAAAGAAGCTCTGAAAGAACTGGCTAAAGCTGAAGAACTGTAA"
+want = Counter(seq[i:i + 3] for i in range(0, len(seq) - 2, 3))
+cc = ns.get("codon_counts")
+if not isinstance(cc, dict):
+    fail("codon_counts should be a Counter of codons.")
+if not cc:
+    fail("codon_counts is still empty. Make a list of codons, then count it with Counter(codons).")
+if sum(cc.values()) == len(seq) - 2:
+    fail("You counted overlapping triplets. Codons don't overlap: step through the sequence 3 at a time with range(0, len(seq), 3).")
+if dict(cc) != dict(want):
+    fail(f"codon_counts has {sum(cc.values())} codons; the sequence has {len(seq) // 3}. Check that each item is a 3-letter slice seq[i:i + 3].")
+top = ns.get("top3")
+if not top or [n for _, n in top] != [n for _, n in want.most_common(3)] or len(top) != 3:
+    fail("top3 should be codon_counts.most_common(3): a list of three (codon, count) pairs.")
+rows = {}
+for line in open("plate_reader.csv").read().splitlines()[1:]:
+    w, s, r, a = line.split(",")
+    rows.setdefault(s, []).append(float(a))
+bs = ns.get("by_sample")
+if not isinstance(bs, dict) or not bs:
+    fail("Fill by_sample from plate_reader.csv: by_sample[sample].append(absorbance).")
+if "sample" in bs:
+    fail("by_sample contains the header line. Skip the first line of the file.")
+if set(bs) != set(rows):
+    fail(f"by_sample has keys {sorted(bs)}, but the samples are {sorted(rows)}. Is the sample name the second column?")
+for s, vals in rows.items():
+    got = bs[s]
+    if any(isinstance(v, str) for v in got):
+        fail(f"by_sample[{s!r}] contains text. Convert the absorbance with float() before appending.")
+    if [round(v, 4) for v in got] != vals:
+        fail(f"by_sample[{s!r}] is {got}; it should be the three absorbance values {vals}.")
+if "lysate_ctrl" not in out:
+    fail("Now print each sample name with the mean of its replicates.")
+ok(f"Most common codon: {want.most_common(1)[0][0]}; {len(rows)} samples grouped. Counter and defaultdict will turn up in nearly every tool you write.")
+--- hint
+Codons: `[seq[i:i + 3] for i in range(0, len(seq), 3)]` gives the list; `Counter(that_list)` counts it.
+--- hint
+For the CSV: `with open("plate_reader.csv") as f:`, then `next(f)` (or a line counter) to skip the header, and inside the loop `well, sample, rep, absorbance = line.strip().split(",")`.
+--- hint
+`by_sample[sample].append(float(absorbance))`, then loop over `by_sample.items()` to print `sum(values) / len(values)`.
+--- solution
+from collections import Counter, defaultdict
+
+seq = "ATGGCTGCTAAAGAAGCTCTGAAAGAACTGGCTAAAGCTGAAGAACTGTAA"
+
+codons = [seq[i:i + 3] for i in range(0, len(seq), 3)]
+codon_counts = Counter(codons)
+top3 = codon_counts.most_common(3)
+print(top3)
+
+by_sample = defaultdict(list)
+with open("plate_reader.csv") as f:
+    next(f)                      # skip the header
+    for line in f:
+        well, sample, rep, absorbance = line.strip().split(",")
+        by_sample[sample].append(float(absorbance))
+
+for sample, values in by_sample.items():
+    print(f"{sample:12} {sum(values) / len(values):.3f}")
+
+=== lesson iter_tools
+title: zip, enumerate and itertools
+minutes: 11
+--- text
+Some looping jobs are so common that Python has built-in helpers for them.
+
+### enumerate: number things as you go
+
+```python
+samples = ["ctrl", "drug", "ko"]
+for i, name in enumerate(samples, start=1):
+    print(i, name)          # 1 ctrl / 2 drug / 3 ko
+```
+
+No more `i = i + 1` counters. Great for line numbers in error messages: `line 7 of the file is not a number`.
+
+### zip: walk through two lists side by side
+
+```python
+genes = ["LMNA", "GAPDH"]
+cts = [22.5, 18.1]
+for gene, ct in zip(genes, cts):
+    print(gene, ct)
+```
+
+`zip` pairs the first with the first, the second with the second, and stops at the end of the shorter list. `dict(zip(genes, cts))` turns two lists into a dictionary in one go.
+
+### itertools: combinations and grids
+
+| Function | Gives | Lab use |
+|---|---|---|
+| `itertools.product("AB", [1, 2])` | A1, A2, B1, B2 | every well of a plate |
+| `itertools.combinations(samples, 2)` | every pair, once | all pairwise comparisons |
+
+```python
+import itertools
+for a, b in itertools.combinations(["ctrl", "drug", "ko"], 2):
+    print(a, "vs", b)       # ctrl vs drug / ctrl vs ko / drug vs ko
+```
+
+> **In the lab:** `product` builds plate layouts, `combinations` lists every pairwise t-test you need to run (and reminds you how many comparisons you're making).
+--- example
+import itertools
+
+for i, gene in enumerate(["LMNA", "LMNB1", "GAPDH"], start=1):
+    print(f"{i}. {gene}")
+
+print(dict(zip(["LMNA", "GAPDH"], [22.5, 18.1])))
+
+strip8 = [row + "1" for row in "ABCDEFGH"]
+print(strip8)
+print(list(itertools.combinations(["ctrl", "drug", "ko"], 2)))
+--- task
+1. Use `itertools.product` to make a list `wells` with all 96 well names of a plate, in reading order: `A1, A2, …, A12, B1, …, H12` (rows `A`–`H`, columns 1–12).
+2. Read `primers.txt` (tab-separated `name` and `sequence`, the first line is a `#` comment). Put the names ending in `_F` in a list `forward` and those ending in `_R` in a list `reverse`, in file order.
+3. Use `zip` to make `pairs`, a list of `(forward_name, reverse_name)` tuples.
+4. Use `enumerate` to print the pairs numbered from 1, e.g. `1. LMNA_F + LMNA_R`.
+--- starter
+import itertools
+
+wells = []
+
+forward = []
+reverse = []
+
+pairs = []
+
+--- check
+w = ns.get("wells")
+if not isinstance(w, list) or not w:
+    fail("Make a list called wells.")
+if len(w) != 96:
+    fail(f"wells has {len(w)} entries; a plate has 96 (8 rows × 12 columns). Did you use range(1, 13) for the columns?")
+if any(not isinstance(x, str) for x in w):
+    fail("Each well should be a string like 'A1'. Join the row and column: row + str(col).")
+if w[0] != "A1" or w[-1] != "H12":
+    fail(f"wells goes from {w[0]} to {w[-1]}; it should go from A1 to H12.")
+if w[1] != "A2":
+    fail(f"The second well is {w[1]}, but it should be A2 (row by row). Put the rows first in product(rows, columns).")
+fw, rv = ns.get("forward"), ns.get("reverse")
+if fw != ["LMNA_F", "GAPDH_F", "CDKN1A_F"]:
+    fail(f"forward is {fw}; it should hold the three primer names ending in _F, in file order. Split each line on '\\t' and use name.endswith('_F').")
+if rv != ["LMNA_R", "GAPDH_R", "CDKN1A_R"]:
+    fail(f"reverse is {rv}; it should hold the three primer names ending in _R, in file order.")
+p = ns.get("pairs")
+if not isinstance(p, list) or [tuple(x) for x in p] != [("LMNA_F", "LMNA_R"), ("GAPDH_F", "GAPDH_R"), ("CDKN1A_F", "CDKN1A_R")]:
+    fail("pairs should be list(zip(forward, reverse)).")
+if "1." not in out or "3." not in out:
+    fail("Print the pairs numbered from 1 using enumerate(pairs, start=1).")
+ok("96 wells and 3 primer pairs. Plate maps and primer tables are exactly where these helpers shine.")
+--- hint
+`[row + str(col) for row, col in itertools.product("ABCDEFGH", range(1, 13))]`
+--- hint
+For primers: skip lines starting with `#`, then `name, sequence = line.strip().split("\t")`, and `if name.endswith("_F"): forward.append(name)`.
+--- hint
+`pairs = list(zip(forward, reverse))`, then `for i, (f, r) in enumerate(pairs, start=1): print(f"{i}. {f} + {r}")`.
+--- solution
+import itertools
+
+wells = [row + str(col) for row, col in itertools.product("ABCDEFGH", range(1, 13))]
+print(len(wells), wells[:3], wells[-1])
+
+forward = []
+reverse = []
+with open("primers.txt") as f:
+    for line in f:
+        if line.startswith("#") or not line.strip():
+            continue
+        name, sequence = line.strip().split("\t")
+        if name.endswith("_F"):
+            forward.append(name)
+        elif name.endswith("_R"):
+            reverse.append(name)
+
+pairs = list(zip(forward, reverse))
+for i, (f, r) in enumerate(pairs, start=1):
+    print(f"{i}. {f} + {r}")
+
+=== lesson json_save
+title: Saving results with json
+minutes: 9
+--- text
+Your analysis produced a dictionary of results. How do you save it so another program, or you tomorrow, can load it back exactly as it was?
+
+**JSON** (JavaScript Object Notation) is a text format that looks almost exactly like Python dictionaries and lists:
+
+```python
+{
+  "sample": "lysate_ctrl",
+  "replicates": [0.492, 0.499, 0.476],
+  "passed_qc": true
+}
+```
+
+The `json` module converts in both directions:
+
+| Code | Does |
+|---|---|
+| `json.dump(data, f, indent=2)` | write `data` to an open file `f` |
+| `json.load(f)` | read a file back into dicts and lists |
+| `json.dumps(data)` | turn `data` into a JSON string |
+| `json.loads(text)` | turn a JSON string back into data |
+
+(The `s` versions work with **s**trings, the others with files.)
+
+```python
+import json
+with open("results.json", "w") as f:
+    json.dump(results, f, indent=2)
+
+with open("results.json") as f:
+    loaded = json.load(f)
+```
+
+JSON is the common language of software. When a web page talks to a server, when a tool calls an online database such as UniProt or NCBI, or when one of your local tools sends results to its browser page, the messages are almost always JSON.
+
+What fits in JSON: dictionaries (with **text** keys), lists, strings, numbers, `True`/`False` (written `true`/`false`) and `None` (written `null`). Not sets, not tuples (they come back as lists).
+
+> **In the lab:** saving the settings and results of each run as JSON next to the raw data makes your analysis reproducible: months later you can see exactly what went in and what came out.
+--- example
+import json
+
+run = {"instrument": "plate reader", "wavelength_nm": 595, "samples": ["ctrl", "drug"], "ok": True}
+text = json.dumps(run, indent=2)
+print(text)
+
+back = json.loads(text)
+print(back["samples"][1], type(back))
+--- task
+1. Build a dictionary `results` with these keys: `"sample"` (`"lysate_drug"`), `"replicates"` (the list `[0.664, 0.660, 0.673]`), and `"mean_absorbance"` (the mean of the replicates, calculated, not typed in).
+2. Save it to a file called `results.json` with `json.dump(..., indent=2)`.
+3. Open the file again and load it into a new variable `loaded` with `json.load`.
+4. Print `loaded["mean_absorbance"]`, and print whether `loaded == results`.
+--- starter
+import json
+
+replicates = [0.664, 0.660, 0.673]
+
+--- check
+import json, os
+r = ns.get("results")
+if not isinstance(r, dict):
+    fail("Make a dictionary called results.")
+for k in ("sample", "replicates", "mean_absorbance"):
+    if k not in r:
+        fail(f"results is missing the key {k!r}.")
+if r["sample"] != "lysate_drug":
+    fail("results['sample'] should be 'lysate_drug'.")
+if list(r["replicates"]) != [0.664, 0.660, 0.673]:
+    fail("results['replicates'] should be the list of three replicate values.")
+if not isinstance(r["mean_absorbance"], (int, float)) or abs(r["mean_absorbance"] - (0.664 + 0.660 + 0.673) / 3) > 1e-6:
+    fail("results['mean_absorbance'] should be the mean of the replicates: sum(...) / len(...).")
+if not os.path.exists("results.json"):
+    fail("There is no results.json yet. Open it with 'w' and call json.dump(results, f, indent=2).")
+try:
+    on_disk = json.load(open("results.json"))
+except ValueError:
+    fail("results.json isn't valid JSON. Write it with json.dump rather than by hand.")
+if on_disk != r:
+    fail("results.json doesn't contain the same data as results. Did you dump the results dictionary?")
+if "loaded" not in ns:
+    fail("Load the file back into a variable called loaded with json.load(f).")
+if ns["loaded"] != r:
+    fail("loaded is not the same as results. Load it from results.json with json.load.")
+if "True" not in out:
+    fail("Print loaded == results (it should say True).")
+ok("Saved and loaded intact. This is exactly how programs, web tools and online databases pass results to each other.")
+--- hint
+`results = {"sample": "lysate_drug", "replicates": replicates, "mean_absorbance": sum(replicates) / len(replicates)}`
+--- hint
+`with open("results.json", "w") as f: json.dump(results, f, indent=2)` to save; then `with open("results.json") as f: loaded = json.load(f)`.
+--- solution
+import json
+
+replicates = [0.664, 0.660, 0.673]
+results = {
+    "sample": "lysate_drug",
+    "replicates": replicates,
+    "mean_absorbance": sum(replicates) / len(replicates),
+}
+
+with open("results.json", "w") as f:
+    json.dump(results, f, indent=2)
+
+with open("results.json") as f:
+    loaded = json.load(f)
+
+print(loaded["mean_absorbance"])
+print(loaded == results)

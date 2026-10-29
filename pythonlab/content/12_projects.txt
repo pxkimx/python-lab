@@ -1,0 +1,1614 @@
+@chapter Projects
+@kind projects
+@blurb Seven real lab tools, built from scratch: ORFs, primers, digests, qPCR, growth curves, codon usage and FASTQ filtering.
+@icon flask
+
+=== lesson proj_orf
+title: ORF finder
+minutes: 25
+--- text
+An **open reading frame** (ORF) is a stretch of DNA that starts with `ATG` and runs, codon by codon, to the first in-frame stop (`TAA`, `TAG` or `TGA`). Finding the longest ORF is often the first thing you do with a new sequence. It's how you guess which part is the gene.
+
+A sequence can be read in three **frames** on the forward strand, starting at position 0, 1 or 2:
+
+```python
+seq = "CCATGAAATAGCC"
+# frame 0: CCA TGA AAT AGC
+# frame 1: CAT GAA ATA GCC
+# frame 2: ATG AAA TAG     <- ATG ... stop: an ORF from 2 to 11
+```
+
+The plan for this tool:
+
+| Function | Job |
+|---|---|
+| `translate(dna)` | DNA → protein, one letter per codon, `*` for stop |
+| `orfs_in_frame(seq, frame)` | every ATG→stop stretch in one frame, as `(start, end)` |
+| `longest_orf(seq)` | the longest of all three frames, with its protein |
+
+Positions follow Python's slicing rules: `start` is the index of the A in ATG and `end` is the index **just after** the stop codon, so `seq[start:end]` is the whole ORF including the stop.
+
+> **In the lab:** this is what SnapGene or ApE do when they draw ORF arrows on your plasmid map. After this project you'll know exactly what's behind those arrows.
+--- example
+BASES = "TCAG"
+AMINO = "FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG"
+CODON_TABLE = {a + b + c: AMINO[16 * i + 4 * j + k]
+               for i, a in enumerate(BASES) for j, b in enumerate(BASES) for k, c in enumerate(BASES)}
+
+seq = "CCATGAAATAGCC"
+for frame in range(3):
+    codons = [seq[i:i + 3] for i in range(frame, len(seq) - 2, 3)]
+    print(f"frame {frame}:", " ".join(codons), "->", "".join(CODON_TABLE[c] for c in codons))
+--- task
+Complete the four functions in the starter (their docstrings say exactly what to return):
+
+1. `translate(dna)` — one amino acid per complete codon, `*` for stops, `X` for anything not in `CODON_TABLE`. A leftover 1–2 bases at the end are ignored.
+2. `orfs_in_frame(seq, frame)` — walk the codons of one frame. When you meet `ATG` (and you're not already in an ORF), an ORF starts. At the next stop codon it ends: record `(start, end)`. An ATG with no stop after it is **not** an ORF.
+3. `longest_orf(seq)` — uppercase the sequence, look in frames 0, 1, 2 and return a dictionary with keys `frame`, `start`, `end`, `length` (= end − start, in nt) and `protein` (the translation **without** the stop `*`). Return `None` if there is no ORF. On a tie, keep the first one found.
+4. `report(path)` — for each sequence in the FASTA file, print its name, the ORF's start, end, length and the first 10 amino acids.
+
+Call `report("sequences.fasta")`.
+
+**Bonus (not checked):** also search the reverse strand by running `longest_orf` on the reverse complement.
+--- starter
+BASES = "TCAG"
+AMINO = "FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG"
+CODON_TABLE = {a + b + c: AMINO[16 * i + 4 * j + k]
+               for i, a in enumerate(BASES) for j, b in enumerate(BASES) for k, c in enumerate(BASES)}
+STOPS = {"TAA", "TAG", "TGA"}
+
+
+def read_fasta(path):
+    records, name = {}, None
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith(">"):
+                name = line[1:].split()[0]
+                records[name] = ""
+            elif name:
+                records[name] += line.upper()
+    return records
+
+
+def translate(dna):
+    """Protein string: one letter per complete codon, '*' for stop, 'X' if unknown."""
+    pass
+
+
+def orfs_in_frame(seq, frame):
+    """List of (start, end) for each ATG...stop in this frame; end is just after the stop."""
+    pass
+
+
+def longest_orf(seq):
+    """Dict with frame, start, end, length, protein (no '*') — or None if there is no ORF."""
+    pass
+
+
+def report(path):
+    """Print one line per sequence: name, start, end, length, first 10 amino acids."""
+    pass
+
+
+report("sequences.fasta")
+--- check
+_B = "TCAG"
+_A = "FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG"
+_T = {a + b + c: _A[16 * i + 4 * j + k] for i, a in enumerate(_B) for j, b in enumerate(_B) for k, c in enumerate(_B)}
+
+
+def _tr(d):
+    return "".join(_T.get(d[i:i + 3], "X") for i in range(0, len(d) - 2, 3))
+
+
+def _orfs(s, f):
+    res, st = [], None
+    for i in range(f, len(s) - 2, 3):
+        c = s[i:i + 3]
+        if st is None and c == "ATG":
+            st = i
+        elif st is not None and c in ("TAA", "TAG", "TGA"):
+            res.append((st, i + 3))
+            st = None
+    return res
+
+
+def _longest(s):
+    s = s.upper()
+    best = None
+    for f in range(3):
+        for a, b in _orfs(s, f):
+            if best is None or b - a > best["length"]:
+                best = {"frame": f, "start": a, "end": b, "length": b - a, "protein": _tr(s[a:b - 3])}
+    return best
+
+
+for fn in ("translate", "orfs_in_frame", "longest_orf", "report"):
+    if not callable(ns.get(fn)):
+        fail(f"Define the function {fn}.")
+tr, oif, lo = ns["translate"], ns["orfs_in_frame"], ns["longest_orf"]
+t = tr("ATGGCCTAA")
+if t is None:
+    fail("translate() returns None — it needs a return line.")
+if t != "MA*":
+    fail(f"translate(\"ATGGCCTAA\") should be \"MA*\", got {t!r}. Step through the DNA 3 bases at a time with range(0, len(dna) - 2, 3).")
+if tr("ATGGC") != "M":
+    fail("translate(\"ATGGC\") should be \"M\": ignore the leftover bases that don't make a full codon.")
+if tr("ATGNNN") != "MX":
+    fail("translate() should give X for a codon that isn't in CODON_TABLE (like NNN). Use CODON_TABLE.get(codon, \"X\").")
+if tr("") != "":
+    fail("translate(\"\") should be an empty string.")
+cases = [("ATGAAATAG", 0), ("CCATGAAATAGCC", 2), ("CCATGAAATAGCC", 0), ("ATGAAAAAA", 0),
+         ("ATGTAAATGCCCTGA", 0), ("ATGATGAAATAG", 0), ("TTATGCCCTAGGG", 2), ("", 0)]
+for s, f in cases:
+    got = oif(s, f)
+    if got is None:
+        fail("orfs_in_frame() returns None — return the list of (start, end) pairs.")
+    exp = _orfs(s, f)
+    if [tuple(x) for x in got] != exp:
+        hint = ""
+        if s == "ATGAAAAAA":
+            hint = " An ATG without a stop after it is not an ORF."
+        elif s == "ATGATGAAATAG":
+            hint = " A second ATG inside an ORF doesn't start a new one."
+        elif s == "ATGTAAATGCCCTGA":
+            hint = " After a stop, look for the next ATG: one frame can hold several ORFs."
+        elif f > 0:
+            hint = " Start the loop at the frame: range(frame, len(seq) - 2, 3)."
+        else:
+            hint = " end is the index just after the stop codon (i + 3)."
+        fail(f"orfs_in_frame({s!r}, {f}) should be {exp}, got {got}.{hint}")
+if lo("") is not None or lo("CCCCCC") is not None or lo("ATGAAAAAA") is not None:
+    fail("longest_orf() should return None when there's no ORF (empty sequence, no ATG, or ATG without a stop).")
+r = lo("ccatgaaatagcc")
+if not isinstance(r, dict):
+    fail("longest_orf() should return a dictionary — and uppercase the sequence first (try \"ccatgaaatagcc\").")
+for k in ("frame", "start", "end", "length", "protein"):
+    if k not in r:
+        fail(f"The dictionary from longest_orf() needs the key \"{k}\".")
+if (r["frame"], r["start"], r["end"], r["length"]) != (2, 2, 11, 9):
+    fail(f"longest_orf(\"ccatgaaatagcc\") should give frame 2, start 2, end 11, length 9; got {r}.")
+if r["protein"] == "MK*":
+    fail("Leave the stop out of the protein: translate seq[start:end - 3].")
+if r["protein"] != "MK":
+    fail(f"The protein for ccatgaaatagcc should be \"MK\", got {r['protein']!r}.")
+mix = "ATGTAGCATGCCCCCCCCCTGACC"
+if lo(mix) != _longest(mix):
+    fail(f"For {mix}, the longest ORF is in frame 1 (start 7). Look in all three frames and keep the longest. You gave {lo(mix)}.")
+recs = ns["read_fasta"]("sequences.fasta")
+for name, s in recs.items():
+    exp, got = _longest(s), lo(s)
+    if got != exp:
+        fail(f"For {name} in sequences.fasta, expected {dict((k, exp[k]) for k in ('frame', 'start', 'end', 'length'))}, got {got if got is None else dict((k, got.get(k)) for k in ('frame', 'start', 'end', 'length'))}.")
+    if str(exp["length"]) not in out or name not in out:
+        fail(f"report() should print a line for {name} with its ORF length ({exp['length']} nt). Did you call report(\"sequences.fasta\")?")
+ok("Your ORF finder agrees with the reference on every gene and every edge case. The longest ORF in each synthetic gene is the whole gene, as designed — on a real genomic fragment, this is how you'd find it.")
+--- hint
+In `orfs_in_frame`, keep a variable `start = None`. Loop `for i in range(frame, len(seq) - 2, 3):`, take `codon = seq[i:i + 3]`, and use `if start is None and codon == "ATG":` / `elif start is not None and codon in STOPS:`.
+--- hint
+In `longest_orf`, loop over `for frame in range(3):` and `for start, end in orfs_in_frame(seq, frame):`, and replace your `best` dictionary only when `end - start > best["length"]` (strictly greater, so the first one wins a tie).
+--- hint
+In `report`, `r = longest_orf(seq)`, then print `name, r["start"], r["end"], r["length"], r["protein"][:10]`, with a special line when `r is None`.
+--- solution
+BASES = "TCAG"
+AMINO = "FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG"
+CODON_TABLE = {a + b + c: AMINO[16 * i + 4 * j + k]
+               for i, a in enumerate(BASES) for j, b in enumerate(BASES) for k, c in enumerate(BASES)}
+STOPS = {"TAA", "TAG", "TGA"}
+
+
+def read_fasta(path):
+    records, name = {}, None
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith(">"):
+                name = line[1:].split()[0]
+                records[name] = ""
+            elif name:
+                records[name] += line.upper()
+    return records
+
+
+def translate(dna):
+    """Protein string: one letter per complete codon, '*' for stop, 'X' if unknown."""
+    protein = ""
+    for i in range(0, len(dna) - 2, 3):
+        protein += CODON_TABLE.get(dna[i:i + 3], "X")
+    return protein
+
+
+def orfs_in_frame(seq, frame):
+    """List of (start, end) for each ATG...stop in this frame; end is just after the stop."""
+    orfs, start = [], None
+    for i in range(frame, len(seq) - 2, 3):
+        codon = seq[i:i + 3]
+        if start is None and codon == "ATG":
+            start = i
+        elif start is not None and codon in STOPS:
+            orfs.append((start, i + 3))
+            start = None
+    return orfs
+
+
+def longest_orf(seq):
+    """Dict with frame, start, end, length, protein (no '*') — or None if there is no ORF."""
+    seq = seq.upper()
+    best = None
+    for frame in range(3):
+        for start, end in orfs_in_frame(seq, frame):
+            if best is None or end - start > best["length"]:
+                best = {"frame": frame, "start": start, "end": end, "length": end - start,
+                        "protein": translate(seq[start:end - 3])}
+    return best
+
+
+def report(path):
+    """Print one line per sequence: name, start, end, length, first 10 amino acids."""
+    print(f"{'name':<10} {'frame':>5} {'start':>6} {'end':>6} {'length':>7}  protein")
+    for name, seq in read_fasta(path).items():
+        r = longest_orf(seq)
+        if r is None:
+            print(f"{name:<10} no ORF found")
+        else:
+            print(f"{name:<10} {r['frame']:>5} {r['start']:>6} {r['end']:>6} {r['length']:>7}  {r['protein'][:10]}…")
+
+
+report("sequences.fasta")
+--- explain
+- `orfs_in_frame` is a tiny state machine: `start is None` means "outside an ORF". An ATG switches it on, a stop records the ORF and switches it off. That's why a nested ATG is ignored and an unfinished ORF is never recorded.
+- `longest_orf` reuses `orfs_in_frame` three times and keeps the best. Uppercasing once at the top protects every function below it.
+- `seq[start:end - 3]` drops the stop codon before translating, so the protein has no `*`.
+- For the reverse strand, add a `revcomp` function and call `longest_orf(revcomp(seq))`. Positions are then counted from the other end.
+
+=== lesson proj_primers
+title: Primer checker
+minutes: 25
+--- text
+Before you order primers, you check a handful of rules of thumb. This tool checks every primer in **primers.txt** and explains each failure:
+
+| Rule | Pass when | Failure code |
+|---|---|---|
+| Length | 18–25 nt | `"length"` |
+| GC content | 40–60 % | `"gc"` |
+| Melting temperature (Wallace) | 52–65 °C, with Tm = 2·(A+T) + 4·(G+C) | `"tm"` |
+| GC clamp | the 3' (last) base is G or C | `"clamp"` |
+| Runs | no run of **4 or more** identical bases (`AAAA`) | `"run"` |
+
+All ranges include their ends (exactly 40 % passes).
+
+The file is tab-separated, with a `#` comment on the first line:
+
+```text
+# name	sequence (5'->3')
+LMNA_F	GCTGAGTACAACCTGCGCTC
+```
+
+`check_primer(seq)` returns a **list of failure codes**. An empty list means PASS. Returning codes instead of printed sentences means other code (a web page, a spreadsheet export) can use the result too.
+
+> **In the lab:** the Wallace rule is a quick estimate that overestimates Tm for longer primers. Real tools use nearest-neighbour thermodynamics, but the structure of the program is exactly the same.
+--- example
+seq = "GCTGAGTACAACCTGCGCTC"
+gc = 100 * (seq.count("G") + seq.count("C")) / len(seq)
+tm = 2 * (seq.count("A") + seq.count("T")) + 4 * (seq.count("G") + seq.count("C"))
+print(f"{len(seq)} nt, GC {gc:.1f} %, Tm {tm} °C, 3' end: {seq[-1]}")
+
+# finding runs: compare each base with the one before it
+run, longest = 1, 1
+for i in range(1, len(seq)):
+    run = run + 1 if seq[i] == seq[i - 1] else 1
+    longest = max(longest, run)
+print("longest run:", longest)
+--- task
+Complete the functions in the starter:
+
+1. `read_primers(path)` → list of `(name, sequence)` tuples, sequences uppercase, skipping blank lines and lines starting with `#`.
+2. `gc_percent(seq)` (`0.0` if empty) and `wallace_tm(seq)`.
+3. `longest_run(seq)` → length of the longest run of one repeated base (`0` for an empty sequence, `1` for `"ATGC"`).
+4. `check_primer(seq)` → list of failure codes from the table (`[]` if it passes). It must not crash on an empty sequence.
+5. `report(path)` → print one line per primer: name, then `PASS`, or `FAIL` followed by the codes.
+
+Call `report("primers.txt")`.
+--- starter
+def read_primers(path):
+    """List of (name, SEQUENCE) tuples; skip '#' lines and blank lines."""
+    pass
+
+
+def gc_percent(seq):
+    """GC content in percent; 0.0 for an empty sequence."""
+    pass
+
+
+def wallace_tm(seq):
+    """2 * (A + T) + 4 * (G + C)."""
+    pass
+
+
+def longest_run(seq):
+    """Length of the longest run of one repeated base; 0 if empty."""
+    pass
+
+
+def check_primer(seq):
+    """List of failure codes: "length", "gc", "tm", "clamp", "run". [] means PASS."""
+    pass
+
+
+def report(path):
+    """Print name and PASS, or FAIL with the codes, for each primer."""
+    pass
+
+
+report("primers.txt")
+--- check
+def _gc(s):
+    return 100 * (s.count("G") + s.count("C")) / len(s) if s else 0.0
+
+
+def _tm(s):
+    return 2 * (s.count("A") + s.count("T")) + 4 * (s.count("G") + s.count("C"))
+
+
+def _run(s):
+    best = run = 0
+    prev = None
+    for b in s:
+        run = run + 1 if b == prev else 1
+        prev = b
+        best = max(best, run)
+    return best
+
+
+def _check(s):
+    s = s.upper()
+    bad = []
+    if not 18 <= len(s) <= 25:
+        bad.append("length")
+    if not 40 <= _gc(s) <= 60:
+        bad.append("gc")
+    if not 52 <= _tm(s) <= 65:
+        bad.append("tm")
+    if not s or s[-1] not in "GC":
+        bad.append("clamp")
+    if _run(s) >= 4:
+        bad.append("run")
+    return bad
+
+
+for fn in ("read_primers", "gc_percent", "wallace_tm", "longest_run", "check_primer", "report"):
+    if not callable(ns.get(fn)):
+        fail(f"Define the function {fn}.")
+rp = ns["read_primers"]("primers.txt")
+if rp is None:
+    fail("read_primers() returns None — return the list of (name, sequence) tuples.")
+rp = [tuple(x) for x in rp]
+exp_p = []
+with open("primers.txt") as f:
+    for line in f:
+        line = line.strip()
+        if line and not line.startswith("#"):
+            n, s = line.split("\t")[:2]
+            exp_p.append((n.strip(), s.strip().upper()))
+if rp and rp[0][0].startswith("#"):
+    fail("read_primers() should skip the comment line that starts with #.")
+if rp != exp_p:
+    fail(f"read_primers(\"primers.txt\") should give {len(exp_p)} (name, sequence) tuples, starting with {exp_p[0]}. Yours starts with {rp[:1]}. Split each line on \"\\t\" and strip the newline.")
+g = ns["gc_percent"]
+if g("GGCC") is None:
+    fail("gc_percent() returns None — it needs a return line.")
+if abs(g("ATGC") - 50) > 1e-6 or abs(g("GGGA") - 75) > 1e-6:
+    fail("gc_percent(\"ATGC\") should be 50 and gc_percent(\"GGGA\") 75.")
+try:
+    if g("") != 0:
+        fail("gc_percent(\"\") should be 0.0.")
+except ZeroDivisionError:
+    fail("gc_percent(\"\") crashes. Return 0.0 for an empty sequence.")
+if ns["wallace_tm"]("ATGC") != 12 or ns["wallace_tm"]("GCTGAGTACAACCTGCGCTC") != 64:
+    fail("wallace_tm(\"ATGC\") should be 2·2 + 4·2 = 12.")
+lr = ns["longest_run"]
+for s, e in [("ATGC", 1), ("AAAAT", 4), ("ATTTGGGGGC", 5), ("CAAG", 2), ("", 0), ("G", 1)]:
+    got = lr(s)
+    if got != e:
+        fail(f"longest_run({s!r}) should be {e}, got {got}." + (" Don't forget the empty sequence." if s == "" else " Check that a run at the very end of the sequence is counted too." if s == "ATTTGGGGGC" else ""))
+cp = ns["check_primer"]
+tests = ["GCTGAGTACAACCTGCGCTC", "CTTGCGGTAGGCAGCGATCT", "AAAAAAAAAATTTTTTTTTT", "ATGCGTAC",
+         "gctgagtacaacctgcgctc", "ATATATATATATATATATATATATATATATG", "GCGCGCGCGCGCGCGCGCGC",
+         "ATGCATGCATGCATGCATGG", "ATGCATGCATGCATGCAGGGG", "GCATGCATGCATGCATGCAC", ""]
+for s in tests:
+    try:
+        got = cp(s)
+    except ZeroDivisionError:
+        fail("check_primer(\"\") crashes. An empty primer should simply fail length, gc, tm and clamp.")
+    except IndexError:
+        fail("check_primer(\"\") crashes with IndexError: seq[-1] doesn't exist for an empty sequence. Check `not seq or seq[-1] not in \"GC\"`.")
+    if got is None:
+        fail("check_primer() returns None — return the list of failure codes.")
+    exp = _check(s)
+    if sorted(got) != sorted(exp):
+        fail(f"check_primer({s!r}) should give {exp}, got {list(got)}. Ranges include their ends, and a run of 4 already fails.")
+for n, s in exp_p:
+    if n not in out:
+        fail(f"{n} is missing from the report. Did you call report(\"primers.txt\")?")
+lines = {l.split()[0]: l for l in out.splitlines() if l.split()}
+for n, s in exp_p:
+    l = lines.get(n, "")
+    word = "PASS" if not _check(s) else "FAIL"
+    if word not in l.upper():
+        fail(f"The report line for {n} should say {word}.")
+    for code in _check(s):
+        if code not in l.lower():
+            fail(f"The report line for {n} should list the reason \"{code}\".")
+ok(f"Your checker passes {sum(1 for n, s in exp_p if not _check(s))} of {len(exp_p)} primers and explains every failure. Next time you design primers, run them through your own tool before ordering.")
+--- hint
+`longest_run`: keep `run` (the current run) and `best`. For each base, `run = run + 1` if it equals the previous base, otherwise `run = 1`; then `best = max(best, run)`. Start `best` at 0 so the empty sequence gives 0.
+--- hint
+`check_primer`: start with `problems = []` and use one `if` per rule, e.g. `if not 18 <= len(seq) <= 25: problems.append("length")`. For the clamp: `if not seq or seq[-1] not in "GC":`.
+--- hint
+`report`: `codes = check_primer(seq)`, then `print(name, "PASS")` if the list is empty, else `print(name, "FAIL:", ", ".join(codes))`.
+--- solution
+def read_primers(path):
+    """List of (name, SEQUENCE) tuples; skip '#' lines and blank lines."""
+    primers = []
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            name, seq = line.split("\t")[:2]
+            primers.append((name.strip(), seq.strip().upper()))
+    return primers
+
+
+def gc_percent(seq):
+    """GC content in percent; 0.0 for an empty sequence."""
+    if not seq:
+        return 0.0
+    return 100 * (seq.count("G") + seq.count("C")) / len(seq)
+
+
+def wallace_tm(seq):
+    """2 * (A + T) + 4 * (G + C)."""
+    return 2 * (seq.count("A") + seq.count("T")) + 4 * (seq.count("G") + seq.count("C"))
+
+
+def longest_run(seq):
+    """Length of the longest run of one repeated base; 0 if empty."""
+    best, run = 0, 0
+    for i, base in enumerate(seq):
+        if i > 0 and base == seq[i - 1]:
+            run += 1
+        else:
+            run = 1
+        best = max(best, run)
+    return best
+
+
+def check_primer(seq):
+    """List of failure codes: "length", "gc", "tm", "clamp", "run". [] means PASS."""
+    seq = seq.upper()
+    problems = []
+    if not 18 <= len(seq) <= 25:
+        problems.append("length")
+    if not 40 <= gc_percent(seq) <= 60:
+        problems.append("gc")
+    if not 52 <= wallace_tm(seq) <= 65:
+        problems.append("tm")
+    if not seq or seq[-1] not in "GC":
+        problems.append("clamp")
+    if longest_run(seq) >= 4:
+        problems.append("run")
+    return problems
+
+
+def report(path):
+    """Print name and PASS, or FAIL with the codes, for each primer."""
+    for name, seq in read_primers(path):
+        codes = check_primer(seq)
+        info = f"{len(seq):>2} nt  GC {gc_percent(seq):4.1f} %  Tm {wallace_tm(seq)} °C"
+        if codes:
+            print(f"{name:<10} FAIL: {', '.join(codes):<22} {info}")
+        else:
+            print(f"{name:<10} PASS  {'':<22} {info}")
+
+
+report("primers.txt")
+--- explain
+- Each rule is one small function or one `if`, so adding a new rule (say, "no more than 3 G/C in the last 5 bases") is a two-line change.
+- `18 <= len(seq) <= 25` is Python's chained comparison, which reads just like the rule in the table.
+- `not seq or seq[-1] …` relies on `or` stopping early: for an empty sequence `seq[-1]` is never evaluated, so nothing crashes.
+- Notice how many published-looking primers fail the Wallace Tm window. That's the rule's known bias for 22-mers, and a good reason to read failure *reasons*, not only PASS/FAIL.
+
+=== lesson proj_digest
+title: Restriction digest of a circular plasmid
+minutes: 25
+--- text
+Planning a diagnostic digest? You need to know where an enzyme cuts and what fragment sizes you'll see on the gel. **plasmid.fasta** holds a 3 kb synthetic plasmid.
+
+Three enzymes, all of which cut after the first base of their site:
+
+| Enzyme | Site | Cut |
+|---|---|---|
+| EcoRI | `GAATTC` | `G^AATTC` |
+| BamHI | `GGATCC` | `G^GATCC` |
+| HindIII | `AAGCTT` | `A^AGCTT` |
+
+The twist: a plasmid is **circular**. Two consequences:
+
+1. A site can **span the origin**: the last bases of the file joined to the first ones. Search `seq + seq[:len(site) - 1]`.
+2. Cutting a circle at **n** places gives **n** fragments, not n + 1. The last fragment runs from the last cut, around the origin, to the first cut.
+
+```python
+length = 1000
+cuts = [100, 400]
+# fragments: 400 - 100 = 300, and (1000 - 400) + 100 = 700
+```
+
+One cut linearises the plasmid (one fragment, the full length). No cuts: it stays one circle of full length.
+
+> **In the lab:** compare the result with your gel. If you expect 1191 + 887 + 493 + 429 bp and see one band at 3 kb, the enzyme didn't cut — check the buffer, or for methylation sensitivity.
+--- example
+seq = "TTCAAAAAAAGAA"           # a tiny "circular" sequence
+site = "GAATTC"
+wrapped = seq + seq[:len(site) - 1]
+print(wrapped)
+print("found at", wrapped.find(site), "(spans the origin)")
+--- task
+Complete the functions in the starter:
+
+1. `read_fasta_one(path)` → the single sequence in the file, uppercase.
+2. `find_sites(seq, site)` → sorted list of 0-based start positions of `site` in the **circular** `seq`, including sites that span the origin (and overlapping matches).
+3. `cut_positions(seq, enzyme_names)` → sorted list of distinct cut positions for a list of enzyme names from `ENZYMES` (cut = site start + cut offset, wrapped with `% len(seq)`).
+4. `fragments(cuts, length)` → fragment sizes of a circle of that length cut at those positions, **largest first**.
+5. `digest(seq, enzyme_names)` → `fragments(cut_positions(...), len(seq))`.
+
+Then print the fragments for EcoRI, BamHI, HindIII, and EcoRI + HindIII.
+--- starter
+ENZYMES = {
+    "EcoRI": ("GAATTC", 1),     # (site, cut offset after the site start)
+    "BamHI": ("GGATCC", 1),
+    "HindIII": ("AAGCTT", 1),
+}
+
+
+def read_fasta_one(path):
+    """The one sequence in a FASTA file, uppercase, without the header."""
+    pass
+
+
+def find_sites(seq, site):
+    """Start positions of site in a circular seq (including across the origin)."""
+    pass
+
+
+def cut_positions(seq, enzyme_names):
+    """Sorted, distinct cut positions for these enzymes."""
+    pass
+
+
+def fragments(cuts, length):
+    """Fragment sizes of a circle of this length cut at these positions, largest first."""
+    pass
+
+
+def digest(seq, enzyme_names):
+    return fragments(cut_positions(seq, enzyme_names), len(seq))
+
+
+plasmid = read_fasta_one("plasmid.fasta")
+
+# Remove the # from the next two lines once your functions return values:
+# for enzymes in (["EcoRI"], ["BamHI"], ["HindIII"], ["EcoRI", "HindIII"]):
+#     print(" + ".join(enzymes), digest(plasmid, enzymes))
+--- check
+_E = {"EcoRI": ("GAATTC", 1), "BamHI": ("GGATCC", 1), "HindIII": ("AAGCTT", 1)}
+
+
+def _sites(s, site):
+    w = s + s[:len(site) - 1]
+    return [i for i in range(len(s)) if w[i:i + len(site)] == site]
+
+
+def _cuts(s, names):
+    return sorted({(p + _E[n][1]) % len(s) for n in names for p in _sites(s, _E[n][0])})
+
+
+def _frags(cuts, L):
+    cuts = sorted(cuts)
+    if len(cuts) < 2:
+        return [L]
+    sizes = [b - a for a, b in zip(cuts, cuts[1:])] + [L - cuts[-1] + cuts[0]]
+    return sorted(sizes, reverse=True)
+
+
+for fn in ("read_fasta_one", "find_sites", "cut_positions", "fragments", "digest"):
+    if not callable(ns.get(fn)):
+        fail(f"Define the function {fn}.")
+with open("plasmid.fasta") as f:
+    real = "".join(l.strip() for l in f if not l.startswith(">")).upper()
+p = ns["read_fasta_one"]("plasmid.fasta")
+if p is None:
+    fail("read_fasta_one() returns None — return the sequence.")
+if p.startswith(">") or "pDemo" in p:
+    fail("read_fasta_one() should leave out the > header line.")
+if p != real:
+    fail(f"read_fasta_one(\"plasmid.fasta\") should return one {len(real)}-letter sequence (yours has {len(p)}). Strip each line and join them.")
+fs = ns["find_sites"]
+for s, site in [(real, "GAATTC"), (real, "GGATCC"), (real, "AAGCTT"), ("TTCAAAAAAAGAA", "GAATTC"),
+                ("AAAAAAAA", "GAATTC"), ("AATTAATT", "AATT"), ("GAATTCAAAA", "GAATTC")]:
+    got = fs(s, site)
+    if got is None:
+        fail("find_sites() returns None — return the list of positions.")
+    if list(got) != _sites(s, site):
+        extra = " Remember the plasmid is circular: search seq + seq[:len(site) - 1], but only keep starts < len(seq)." if s == "TTCAAAAAAAGAA" else " Count overlapping matches too: test every start position." if s == "AATTAATT" else ""
+        fail(f"find_sites({s if len(s) < 20 else 'plasmid'!r}, {site!r}) should be {_sites(s, site)}, got {list(got)}.{extra}")
+cp = ns["cut_positions"]
+for names in (["EcoRI"], ["EcoRI", "HindIII"], ["BamHI", "EcoRI", "HindIII"]):
+    got = cp(real, names)
+    if got is None or list(got) != _cuts(real, names):
+        fail(f"cut_positions(plasmid, {names}) should be {_cuts(real, names)}, got {got}. Add the cut offset to each site start and sort.")
+if list(cp("TTCAAAAAAAGAA", ["EcoRI"])) != [11]:
+    fail("For a site across the origin, the cut position can wrap around: use (start + offset) % len(seq).")
+fr = ns["fragments"]
+for cuts, L in [([100, 400], 1000), ([400, 100], 1000), ([], 3000), ([250], 3000), ([0, 500, 1500], 3000), ([10, 20, 30], 100)]:
+    got = fr(cuts, L)
+    if got is None:
+        fail("fragments() returns None — return the list of sizes.")
+    if list(got) != _frags(cuts, L):
+        if len(cuts) == 0:
+            fail(f"fragments([], {L}) should be [{L}]: an uncut plasmid is one circle of full length.")
+        if len(cuts) == 1:
+            fail(f"fragments([{cuts[0]}], {L}) should be [{L}]: one cut just linearises the circle.")
+        fail(f"fragments({cuts}, {L}) should be {_frags(cuts, L)}, got {list(got)}. Don't forget the piece that wraps around the origin, and sort largest first.")
+    if sum(got) != L:
+        fail("The fragments should add up to the plasmid length.")
+for names in (["EcoRI"], ["BamHI"], ["HindIII"], ["EcoRI", "HindIII"]):
+    exp = _frags(_cuts(real, names), len(real))
+    got = ns["digest"](real, names)
+    if list(got) != exp:
+        fail(f"digest(plasmid, {names}) should be {exp}, got {got}.")
+    if str(exp[0]) not in out:
+        fail(f"Print the fragments for {' + '.join(names)} ({exp}).")
+e = _frags(_cuts(real, ["EcoRI"]), len(real))
+ok(f"EcoRI gives {len(e)} fragments ({', '.join(map(str, e))} bp) from the {len(real)} bp circle. You've built the core of a virtual-gel tool.")
+--- hint
+`find_sites`: `wrapped = seq + seq[:len(site) - 1]`, then loop `for i in range(len(seq)):` and keep `i` when `wrapped[i:i + len(site)] == site`.
+--- hint
+`cut_positions`: use a set so two enzymes cutting at the same place count once: `cuts = set()`, then for each name `site, offset = ENZYMES[name]` and `cuts.add((pos + offset) % len(seq))` for every site. Return `sorted(cuts)`.
+--- hint
+`fragments`: if fewer than 2 cuts, return `[length]`. Otherwise sort the cuts, take the differences between neighbours, add `length - cuts[-1] + cuts[0]`, and return `sorted(sizes, reverse=True)`.
+--- solution
+ENZYMES = {
+    "EcoRI": ("GAATTC", 1),     # (site, cut offset after the site start)
+    "BamHI": ("GGATCC", 1),
+    "HindIII": ("AAGCTT", 1),
+}
+
+
+def read_fasta_one(path):
+    """The one sequence in a FASTA file, uppercase, without the header."""
+    seq = ""
+    with open(path) as f:
+        for line in f:
+            if not line.startswith(">"):
+                seq += line.strip().upper()
+    return seq
+
+
+def find_sites(seq, site):
+    """Start positions of site in a circular seq (including across the origin)."""
+    wrapped = seq + seq[:len(site) - 1]
+    return [i for i in range(len(seq)) if wrapped[i:i + len(site)] == site]
+
+
+def cut_positions(seq, enzyme_names):
+    """Sorted, distinct cut positions for these enzymes."""
+    cuts = set()
+    for name in enzyme_names:
+        site, offset = ENZYMES[name]
+        for pos in find_sites(seq, site):
+            cuts.add((pos + offset) % len(seq))
+    return sorted(cuts)
+
+
+def fragments(cuts, length):
+    """Fragment sizes of a circle of this length cut at these positions, largest first."""
+    cuts = sorted(cuts)
+    if len(cuts) < 2:
+        return [length]
+    sizes = [b - a for a, b in zip(cuts, cuts[1:])]
+    sizes.append(length - cuts[-1] + cuts[0])
+    return sorted(sizes, reverse=True)
+
+
+def digest(seq, enzyme_names):
+    return fragments(cut_positions(seq, enzyme_names), len(seq))
+
+
+plasmid = read_fasta_one("plasmid.fasta")
+print(f"Plasmid: {len(plasmid)} bp")
+for name, (site, offset) in ENZYMES.items():
+    print(f"{name:<8} sites at {find_sites(plasmid, site)}")
+print()
+for enzymes in (["EcoRI"], ["BamHI"], ["HindIII"], ["EcoRI", "HindIII"]):
+    print(f"{' + '.join(enzymes):<16} {digest(plasmid, enzymes)}")
+--- explain
+- `seq + seq[:len(site) - 1]` adds just enough of the start to catch a site across the origin, and `range(len(seq))` makes sure no site is counted twice.
+- `zip(cuts, cuts[1:])` pairs each cut with the next one, so the differences are the inner fragments. One extra line adds the fragment that wraps around.
+- A set in `cut_positions` handles two enzymes that happen to cut at the same spot.
+- Extend it: add more enzymes to `ENZYMES` (e.g. `"XhoI": ("CTCGAG", 1)`), or draw a virtual gel with matplotlib using a log scale for the fragment sizes.
+
+=== lesson proj_qpcr
+title: qPCR report: ΔΔCt fold changes
+minutes: 30
+--- text
+**qpcr.csv** holds a real-looking experiment: control vs. progerin-expressing cells, 3 biological replicates each, 3 technical replicates per well, a reference gene (GAPDH) and four targets.
+
+The **ΔΔCt method** in four steps:
+
+1. **Average technical replicates** → one Ct per sample and gene.
+2. **ΔCt** = Ct(gene) − Ct(GAPDH), within the same sample.
+3. **ΔΔCt** = ΔCt − mean ΔCt of the **control** samples for that gene.
+4. **Fold change** = 2^(−ΔΔCt). Then mean and SD across the biological replicates.
+
+```python
+import pandas as pd
+df = pd.read_csv("qpcr.csv")
+means = df.groupby(["sample", "condition", "gene"], as_index=False)["ct"].mean()
+```
+
+| sample | gene | mean Ct | ΔCt | ΔΔCt | fold |
+|---|---|---|---|---|---|
+| progerin_1 | CDKN1A | 23.68 | 5.73 | −2.12 | 4.4 |
+
+Computing fold change **per biological replicate** before averaging gives an honest SD: it shows how much the three independent cultures really varied.
+
+> **In the lab:** this is the table you'd paste into a figure legend: "CDKN1A (p21) is up about 5-fold in progerin-expressing cells (mean ± SD, n = 3)". Your script will produce it in under a second, every time, with no copy-paste errors.
+--- example
+import pandas as pd
+
+df = pd.read_csv("qpcr.csv")
+print(df.head())
+means = df.groupby(["sample", "condition", "gene"], as_index=False)["ct"].mean()
+print(means.head(10))
+ref = means[means["gene"] == "GAPDH"].set_index("sample")["ct"]
+print("GAPDH per sample:")
+print(ref)
+--- task
+Complete the functions in the starter:
+
+1. `mean_ct(df)` → DataFrame with columns `sample`, `condition`, `gene`, `ct`: the mean of the technical replicates.
+2. `fold_changes(df, ref="GAPDH", control="control")` → DataFrame with columns `sample`, `condition`, `gene`, `fold_change`: one row per sample and **non-reference** gene. Use the `ref` and `control` arguments, don't hard-code them.
+3. `fold_change_summary(fc)` → DataFrame with columns `gene`, `condition`, `mean_fc`, `sd_fc` (pandas' `.std()`, the sample SD), one row per gene and condition.
+4. Write the summary to **qpcr_report.csv** (without the index) and draw a bar chart of `mean_fc` with `sd_fc` error bars for the progerin samples.
+--- starter
+import pandas as pd
+import matplotlib.pyplot as plt
+
+
+def mean_ct(df):
+    """Mean Ct of the technical replicates: columns sample, condition, gene, ct."""
+    pass
+
+
+def fold_changes(df, ref="GAPDH", control="control"):
+    """2^-ddCt per sample and non-reference gene: columns sample, condition, gene, fold_change."""
+    pass
+
+
+def fold_change_summary(fc):
+    """Mean and SD of fold_change per gene and condition: columns gene, condition, mean_fc, sd_fc."""
+    pass
+
+
+df = pd.read_csv("qpcr.csv")
+summary = fold_change_summary(fold_changes(df))
+print(summary)
+# write qpcr_report.csv and draw the bar chart here
+--- check
+import os
+import numpy as np
+import pandas as pd
+
+
+def _fc(df, ref="GAPDH", control="control"):
+    m = df.groupby(["sample", "condition", "gene"], as_index=False)["ct"].mean()
+    r = m[m["gene"] == ref][["sample", "ct"]].rename(columns={"ct": "ref_ct"})
+    m = m[m["gene"] != ref].merge(r, on="sample")
+    m["dct"] = m["ct"] - m["ref_ct"]
+    cm = m[m["condition"] == control].groupby("gene")["dct"].mean().rename("cdct")
+    m = m.merge(cm, left_on="gene", right_index=True)
+    m["fold_change"] = 2 ** -(m["dct"] - m["cdct"])
+    return m[["sample", "condition", "gene", "fold_change"]]
+
+
+def _sum(fc):
+    g = fc.groupby(["gene", "condition"])["fold_change"]
+    return pd.DataFrame({"mean_fc": g.mean(), "sd_fc": g.std()}).reset_index()
+
+
+def _cmp(got, exp, keys, cols, what):
+    if not isinstance(got, pd.DataFrame):
+        fail(f"{what} should return a pandas DataFrame (it returned {type(got).__name__}).")
+    for c in keys + cols:
+        if c not in got.columns:
+            fail(f"{what} needs a column called \"{c}\". Yours has {list(got.columns)}. Use as_index=False or .reset_index() to keep the group names as columns.")
+    if len(got) != len(exp):
+        fail(f"{what} should have {len(exp)} rows, yours has {len(got)}.")
+    mg = exp.merge(got[keys + cols], on=keys, how="left", suffixes=("", "_you"))
+    for c in cols:
+        bad = mg[~np.isclose(mg[c], mg[c + "_you"], rtol=1e-6, atol=1e-6, equal_nan=True)]
+        if len(bad):
+            row = bad.iloc[0]
+            fail(f"{what}: for {', '.join(str(row[k]) for k in keys)}, {c} should be {row[c]:.4g}, yours is {row[c + '_you']}.")
+
+
+for fn in ("mean_ct", "fold_changes", "fold_change_summary"):
+    if not callable(ns.get(fn)):
+        fail(f"Define the function {fn}.")
+df = pd.read_csv("qpcr.csv")
+exp_m = df.groupby(["sample", "condition", "gene"], as_index=False)["ct"].mean()
+_cmp(ns["mean_ct"](df.copy()), exp_m, ["sample", "gene"], ["ct"], "mean_ct(df)")
+got_fc = ns["fold_changes"](df.copy())
+exp_fc = _fc(df)
+if isinstance(got_fc, pd.DataFrame) and "gene" in got_fc.columns and "GAPDH" in set(got_fc["gene"]):
+    fail("fold_changes() should leave out the reference gene itself (its fold change is always 1).")
+_cmp(got_fc, exp_fc, ["sample", "gene"], ["fold_change"], "fold_changes(df)")
+tiny = pd.DataFrame({
+    "sample": ["c1", "c1", "c2", "c2", "t1", "t1", "t2", "t2"],
+    "condition": ["ctrl", "ctrl", "ctrl", "ctrl", "drug", "drug", "drug", "drug"],
+    "gene": ["ACTB", "P21", "ACTB", "P21", "ACTB", "P21", "ACTB", "P21"],
+    "replicate": [1] * 8,
+    "ct": [20.0, 25.0, 21.0, 26.0, 20.0, 23.0, 20.5, 24.5],
+})
+_cmp(ns["fold_changes"](tiny.copy(), ref="ACTB", control="ctrl"), _fc(tiny, "ACTB", "ctrl"),
+     ["sample", "gene"], ["fold_change"], "fold_changes(tiny, ref=\"ACTB\", control=\"ctrl\") — use the ref and control arguments —")
+summ = ns["fold_change_summary"](exp_fc.copy())
+_cmp(summ, _sum(exp_fc), ["gene", "condition"], ["mean_fc", "sd_fc"], "fold_change_summary(fc)")
+if not os.path.exists("qpcr_report.csv"):
+    fail("Write the summary to qpcr_report.csv with summary.to_csv(\"qpcr_report.csv\", index=False).")
+rep = pd.read_csv("qpcr_report.csv")
+if "Unnamed: 0" in rep.columns:
+    fail("qpcr_report.csv has an extra index column. Use index=False in to_csv.")
+_cmp(rep, _sum(exp_fc), ["gene", "condition"], ["mean_fc", "sd_fc"], "qpcr_report.csv")
+import sys
+plt = sys.modules.get("matplotlib.pyplot")
+if plt is None or not plt.get_fignums():
+    fail("The report is right. Now draw the bar chart (plt.bar with yerr=…).")
+s = _sum(exp_fc)
+up = s[s["condition"] == "progerin"].sort_values("mean_fc", ascending=False).iloc[0]
+ok(f"Report written. Biggest change: {up['gene']} at {up['mean_fc']:.1f} ± {up['sd_fc']:.1f}-fold in progerin cells. This script now replaces the spreadsheet you'd rebuild for every plate.")
+--- hint
+`mean_ct`: `df.groupby(["sample", "condition", "gene"], as_index=False)["ct"].mean()`. For ΔCt, make a table of the reference Cts per sample (`means[means["gene"] == ref]`), rename its `ct` column to `ref_ct`, and `merge` it onto the other genes `on="sample"`.
+--- hint
+For ΔΔCt: `control_mean = targets[targets["condition"] == control].groupby("gene")["dct"].mean()`, then `targets["ddct"] = targets["dct"] - targets["gene"].map(control_mean)` and `targets["fold_change"] = 2 ** -targets["ddct"]`.
+--- hint
+`fold_change_summary`: `fc.groupby(["gene", "condition"])["fold_change"].agg(mean_fc="mean", sd_fc="std").reset_index()`.
+--- solution
+import pandas as pd
+import matplotlib.pyplot as plt
+
+
+def mean_ct(df):
+    """Mean Ct of the technical replicates: columns sample, condition, gene, ct."""
+    return df.groupby(["sample", "condition", "gene"], as_index=False)["ct"].mean()
+
+
+def fold_changes(df, ref="GAPDH", control="control"):
+    """2^-ddCt per sample and non-reference gene: columns sample, condition, gene, fold_change."""
+    means = mean_ct(df)
+    ref_ct = means[means["gene"] == ref][["sample", "ct"]].rename(columns={"ct": "ref_ct"})
+    targets = means[means["gene"] != ref].merge(ref_ct, on="sample")
+    targets["dct"] = targets["ct"] - targets["ref_ct"]
+    control_mean = targets[targets["condition"] == control].groupby("gene")["dct"].mean()
+    targets["ddct"] = targets["dct"] - targets["gene"].map(control_mean)
+    targets["fold_change"] = 2 ** -targets["ddct"]
+    return targets[["sample", "condition", "gene", "fold_change"]]
+
+
+def fold_change_summary(fc):
+    """Mean and SD of fold_change per gene and condition: columns gene, condition, mean_fc, sd_fc."""
+    return fc.groupby(["gene", "condition"])["fold_change"].agg(mean_fc="mean", sd_fc="std").reset_index()
+
+
+df = pd.read_csv("qpcr.csv")
+summary = fold_change_summary(fold_changes(df))
+print(summary.round(2).to_string(index=False))
+summary.to_csv("qpcr_report.csv", index=False)
+
+prog = summary[summary["condition"] == "progerin"]
+plt.bar(prog["gene"], prog["mean_fc"], yerr=prog["sd_fc"], capsize=4, color="#5b8def")
+plt.axhline(1, color="grey", linestyle="--", linewidth=1)
+plt.ylabel("fold change vs. control (2^-ΔΔCt)")
+plt.title("Progerin vs. control, mean ± SD, n = 3")
+plt.show()
+--- explain
+- Each function is one step of the method, so you can print the intermediate tables (`mean_ct(df)`, `fold_changes(df)`) whenever a number looks odd.
+- `merge(ref_ct, on="sample")` puts each target gene's Ct next to the GAPDH Ct from **the same sample**, which is the whole point of a reference gene.
+- `targets["gene"].map(control_mean)` looks up the control mean ΔCt for each row's gene.
+- The dashed line at 1 marks "no change". LMNB1 drops below it, a known marker of senescence, while CDKN1A (p21) and IL6 rise.
+
+=== lesson proj_growth
+title: Growth-curve analyzer
+minutes: 25
+--- text
+**growth_curve.csv** has OD600 readings every 20 minutes for three *E. coli* strains: `WT`, `delta_recA` and `delta_lon`. The question: what is each strain's **doubling time** in exponential phase?
+
+During exponential growth, OD = OD₀ · e^(μ·t), so **ln(OD) is a straight line** with slope μ, the specific growth rate. The doubling time is **ln(2) / μ**.
+
+But a growth curve isn't a straight line everywhere: lag phase, then exponential, then stationary. The standard fix is a **sliding window**. Fit a straight line to every run of, say, 5 consecutive points of ln(OD) vs. time, and take the **steepest** slope:
+
+```python
+import numpy as np
+t = np.array([0, 20, 40, 60, 80])
+od = np.array([0.02, 0.03, 0.044, 0.08, 0.11])
+slope, intercept = np.polyfit(t, np.log(od), 1)
+print(slope, np.log(2) / slope)   # per minute, minutes
+```
+
+`np.polyfit(x, y, 1)` fits a degree-1 polynomial, a straight line, and returns `[slope, intercept]`.
+
+> **In the lab:** this is what plate-reader software reports as "max growth rate". Writing it yourself means you control the window size and can see exactly which points it used, which matters when a mutant like Δlon has an odd curve.
+--- example
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+df = pd.read_csv("growth_curve.csv")
+print(df.head())
+for strain in ["WT", "delta_recA", "delta_lon"]:
+    plt.plot(df["time_min"], df[strain], marker="o", markersize=3, label=strain)
+plt.yscale("log")
+plt.xlabel("time (min)")
+plt.ylabel("OD600 (log scale)")
+plt.legend()
+plt.show()
+--- task
+Complete the functions in the starter:
+
+1. `max_growth_rate(times, ods, window=5)` → the steepest slope of ln(OD) vs. time over every run of `window` consecutive points (use `np.polyfit`). Skip any window that contains an OD of 0 or below (you can't take its log). Return `0.0` if there is no valid window, e.g. fewer points than `window`.
+2. `doubling_time(rate)` → `ln(2) / rate` in minutes; return `float("inf")` if the rate is 0 or negative.
+3. `analyze(path, window=5)` → dictionary `{strain: doubling time}` for every strain column in the CSV (all columns except `time_min`).
+
+Print each strain's doubling time, fastest first.
+--- starter
+import numpy as np
+import pandas as pd
+
+
+def max_growth_rate(times, ods, window=5):
+    """Steepest slope of ln(OD) over any `window` consecutive points (per minute)."""
+    pass
+
+
+def doubling_time(rate):
+    """ln(2) / rate in minutes; inf if rate <= 0."""
+    pass
+
+
+def analyze(path, window=5):
+    """{strain: doubling time in minutes} for each column except time_min."""
+    pass
+
+
+results = analyze("growth_curve.csv")
+print(results)
+--- check
+import math
+import numpy as np
+import pandas as pd
+
+
+def _mgr(t, od, w=5):
+    t, od = np.asarray(t, float), np.asarray(od, float)
+    best = None
+    for i in range(len(t) - w + 1):
+        if np.any(od[i:i + w] <= 0):
+            continue
+        s = np.polyfit(t[i:i + w], np.log(od[i:i + w]), 1)[0]
+        best = s if best is None or s > best else best
+    return 0.0 if best is None else float(best)
+
+
+for fn in ("max_growth_rate", "doubling_time", "analyze"):
+    if not callable(ns.get(fn)):
+        fail(f"Define the function {fn}.")
+mgr, dt, an = ns["max_growth_rate"], ns["doubling_time"], ns["analyze"]
+t = list(range(0, 300, 20))
+od = [0.01 * 2 ** (x / 30) for x in t]
+r = mgr(t, od)
+if r is None:
+    fail("max_growth_rate() returns None — it needs a return line.")
+if abs(r - math.log(2) / 30) > 1e-6:
+    if abs(r - 1 / 30) < 1e-3 or abs(r - math.log10(2) / 30) < 1e-6:
+        fail("Fit the natural log: np.log(ods), not log10 or log2, so that doubling time = ln(2) / slope.")
+    fail(f"For a perfect curve that doubles every 30 min, max_growth_rate should be ln(2)/30 = {math.log(2) / 30:.5f} per min; got {r}.")
+lagged = [0.05] * 6 + [0.05 * 2 ** (k / 1.5) for k in range(1, 9)] + [12.8] * 6
+tt = list(range(0, 20 * len(lagged), 20))
+if abs(mgr(tt, lagged) - _mgr(tt, lagged)) > 1e-6:
+    fail("With a lag phase and a plateau, max_growth_rate should still find the steepest window. Loop over every start position and keep the largest slope.")
+for w in (3, 4, 7):
+    if abs(mgr(tt, lagged, window=w) - _mgr(tt, lagged, w)) > 1e-6:
+        fail(f"max_growth_rate(…, window={w}) gave a different answer than expected. Use the window argument for the size of each slice.")
+blank = [0.0, -0.002, 0.01, 0.02, 0.04, 0.08, 0.16, 0.32, 0.5]
+try:
+    rb = mgr(list(range(0, 180, 20)), blank)
+except Exception as e:
+    fail(f"max_growth_rate crashed on ODs that include 0 or negative values ({type(e).__name__}). Skip windows that contain any OD <= 0.")
+if not np.isfinite(rb) or abs(rb - _mgr(list(range(0, 180, 20)), blank)) > 1e-6:
+    fail("Skip every window that contains an OD of 0 or below; np.log of those gives -inf or nan and spoils the fit.")
+if mgr([0, 20, 40], [0.1, 0.2, 0.4]) != 0:
+    fail("With fewer points than the window (3 points, window 5), max_growth_rate should return 0.0.")
+if dt(math.log(2) / 30) is None or abs(dt(math.log(2) / 30) - 30) > 1e-9:
+    fail("doubling_time(rate) should be math.log(2) / rate.")
+for bad in (0, 0.0, -0.01):
+    try:
+        v = dt(bad)
+    except ZeroDivisionError:
+        fail("doubling_time(0) crashes. Return float(\"inf\") when the rate is 0 or below.")
+    if v != float("inf"):
+        fail(f"doubling_time({bad}) should be float(\"inf\") — a culture that isn't growing never doubles.")
+df = pd.read_csv("growth_curve.csv")
+res = an("growth_curve.csv")
+if not isinstance(res, dict):
+    fail("analyze() should return a dictionary {strain: doubling time}.")
+strains = [c for c in df.columns if c != "time_min"]
+if sorted(res) != sorted(strains):
+    fail(f"analyze() should have one key per strain: {strains}. Yours: {list(res)}.")
+for s in strains:
+    exp = math.log(2) / _mgr(df["time_min"], df[s])
+    if abs(res[s] - exp) > 0.01:
+        fail(f"Doubling time for {s} should be about {exp:.1f} min, yours is {res[s]:.2f}.")
+res3 = an("growth_curve.csv", window=3)
+for s in strains:
+    exp = math.log(2) / _mgr(df["time_min"], df[s], 3)
+    if abs(res3[s] - exp) > 0.01:
+        fail(f"analyze(path, window=3) should pass the window on to max_growth_rate (for {s} expected {exp:.1f} min).")
+order = sorted(strains, key=lambda s: res[s])
+pos = [out.find(s) for s in order]
+if any(p < 0 for p in pos):
+    fail("Print each strain's doubling time.")
+fast = order[0]
+ok(f"{fast} doubles fastest ({res[fast]:.1f} min), WT in {res['WT']:.1f} min. One function, any plate-reader export — and you can see exactly how the number was made.")
+--- hint
+Convert first: `times = np.asarray(times, float)` and `ods = np.asarray(ods, float)`. Then loop `for i in range(len(times) - window + 1):` and slice `t = times[i:i + window]`, `y = ods[i:i + window]`.
+--- hint
+Skip a bad window with `if np.any(y <= 0): continue`. Fit with `slope = np.polyfit(t, np.log(y), 1)[0]`, keep the largest slope in a variable that starts as `None`, and return `0.0` if it is still `None` at the end.
+--- hint
+`analyze`: `df = pd.read_csv(path)`, then `for strain in df.columns:` (skip `"time_min"`) and store `doubling_time(max_growth_rate(df["time_min"], df[strain], window))`. To print fastest first: `for s in sorted(results, key=results.get):`.
+--- solution
+import math
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+
+def max_growth_rate(times, ods, window=5):
+    """Steepest slope of ln(OD) over any `window` consecutive points (per minute)."""
+    times = np.asarray(times, dtype=float)
+    ods = np.asarray(ods, dtype=float)
+    best = None
+    for i in range(len(times) - window + 1):
+        t = times[i:i + window]
+        y = ods[i:i + window]
+        if np.any(y <= 0):
+            continue
+        slope = np.polyfit(t, np.log(y), 1)[0]
+        if best is None or slope > best:
+            best = slope
+    return 0.0 if best is None else float(best)
+
+
+def doubling_time(rate):
+    """ln(2) / rate in minutes; inf if rate <= 0."""
+    if rate <= 0:
+        return float("inf")
+    return math.log(2) / rate
+
+
+def analyze(path, window=5):
+    """{strain: doubling time in minutes} for each column except time_min."""
+    df = pd.read_csv(path)
+    results = {}
+    for strain in df.columns:
+        if strain == "time_min":
+            continue
+        results[strain] = doubling_time(max_growth_rate(df["time_min"], df[strain], window))
+    return results
+
+
+results = analyze("growth_curve.csv")
+print("Doubling times (fastest first):")
+for strain in sorted(results, key=results.get):
+    print(f"  {strain:<12} {results[strain]:5.1f} min")
+
+df = pd.read_csv("growth_curve.csv")
+for strain in results:
+    plt.plot(df["time_min"], df[strain], marker="o", markersize=3,
+             label=f"{strain} ({results[strain]:.0f} min)")
+plt.yscale("log")
+plt.xlabel("time (min)")
+plt.ylabel("OD600")
+plt.legend()
+plt.show()
+--- explain
+- `np.asarray(..., dtype=float)` lets the function accept lists, pandas columns or arrays: whatever the caller has.
+- Every window gets its own straight-line fit on ln(OD). The steepest one is mid-exponential phase, away from lag and stationary phase.
+- Skipping windows with OD ≤ 0 matters for blank-subtracted data, where the first readings are often 0 or slightly negative.
+- Try `analyze("growth_curve.csv", window=3)`: smaller windows find steeper (but noisier) slopes. Reporting the window size in your methods section makes the analysis reproducible.
+
+=== lesson proj_codons
+title: Codon usage and alternative genetic codes
+minutes: 30
+--- text
+Organisms don't use synonymous codons equally. Leucine has six codons, but *E. coli* strongly prefers CTG. **Codon usage** tables capture these preferences, and **rare codons** can slow translation or make a gene express poorly in a new host.
+
+The standard measure is **relative synonymous codon usage** (RSCU):
+
+RSCU(codon) = count(codon) × (number of codons for that amino acid) / total count for that amino acid
+
+RSCU = 1 means "used exactly as often as expected if all synonyms were equal". Above 1 is preferred; below about 0.5 is rare.
+
+```python
+# Lysine has 2 codons. If AAA appears 3 times and AAG once:
+# RSCU(AAA) = 3 × 2 / 4 = 1.5     RSCU(AAG) = 1 × 2 / 4 = 0.5
+```
+
+**The genetic code isn't universal.** In *Mycoplasma* and mitochondria, `TGA` means **tryptophan** instead of stop. Other lineages have reassigned sense codons to new amino acids. Such sense-to-sense reassignments, like a CGG arginine codon read as tryptophan, are exactly what code-prediction tools look for. A translation function that takes the reassignments as an argument lets you see what a gene's protein looks like under any code.
+
+> **In the lab:** expressing a *Mycoplasma* gene in *E. coli*? Every internal TGA becomes a premature stop. Listing the genes with in-frame TGA codons is the first step of planning the mutagenesis.
+--- example
+from collections import Counter
+
+BASES = "TCAG"
+AMINO = "FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG"
+CODON_TABLE = {a + b + c: AMINO[16 * i + 4 * j + k]
+               for i, a in enumerate(BASES) for j, b in enumerate(BASES) for k, c in enumerate(BASES)}
+
+synonyms = {}
+for codon, aa in CODON_TABLE.items():
+    synonyms.setdefault(aa, []).append(codon)
+print("Leucine codons:", synonyms["L"])
+print("Stop codons:   ", synonyms["*"])
+
+seq = "ATGCTGCTGCTACTGAAATAA"
+print(Counter(seq[i:i + 3] for i in range(0, len(seq) - 2, 3)))
+--- task
+Complete the functions in the starter:
+
+1. `codons(seq)` → list of the complete in-frame codons (frame 0).
+2. `codon_counts(records)` → a dictionary (or `Counter`) of codon → count over **all** sequences in a `{name: seq}` dictionary.
+3. `rscu(counts)` → dictionary codon → RSCU, for every codon in `CODON_TABLE` whose amino acid (stop `*` counts as one) appears at least once. Codons of that amino acid that never appear get `0.0`.
+4. `rare_codons(rscu_values, threshold=0.5)` → **sorted** list of codons with RSCU below the threshold.
+5. `translate_alt(dna, reassign=None)` → protein using the standard code, except for the codons in the `reassign` dictionary (e.g. `{"TGA": "W"}`). Translate every complete codon (`*` for stops); `X` for unknown codons. It must **not** change `CODON_TABLE` itself.
+
+Then use them on **sequences.fasta**: print the codons with RSCU below **0.7** (these synthetic genes use codons almost evenly, so none falls below 0.5 — real genes are far more biased), and for each gene print how many `TGA` codons it has and its protein's last 5 residues under the standard code and under `{"TGA": "W"}`.
+--- starter
+from collections import Counter
+
+BASES = "TCAG"
+AMINO = "FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG"
+CODON_TABLE = {a + b + c: AMINO[16 * i + 4 * j + k]
+               for i, a in enumerate(BASES) for j, b in enumerate(BASES) for k, c in enumerate(BASES)}
+
+
+def read_fasta(path):
+    records, name = {}, None
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith(">"):
+                name = line[1:].split()[0]
+                records[name] = ""
+            elif name:
+                records[name] += line.upper()
+    return records
+
+
+def codons(seq):
+    """Complete in-frame codons of seq, as a list."""
+    pass
+
+
+def codon_counts(records):
+    """Codon -> count over all sequences in {name: seq}."""
+    pass
+
+
+def rscu(counts):
+    """Codon -> RSCU for every codon whose amino acid appears; unused synonyms get 0.0."""
+    pass
+
+
+def rare_codons(rscu_values, threshold=0.5):
+    """Sorted list of codons with RSCU < threshold."""
+    pass
+
+
+def translate_alt(dna, reassign=None):
+    """Translate with the standard code plus reassignments like {"TGA": "W"}."""
+    pass
+
+
+records = read_fasta("sequences.fasta")
+--- check
+from collections import Counter
+_B = "TCAG"
+_A = "FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG"
+_T = {a + b + c: _A[16 * i + 4 * j + k] for i, a in enumerate(_B) for j, b in enumerate(_B) for k, c in enumerate(_B)}
+
+
+def _cod(s):
+    return [s[i:i + 3] for i in range(0, len(s) - 2, 3)]
+
+
+def _rscu(counts):
+    syn = {}
+    for c, aa in _T.items():
+        syn.setdefault(aa, []).append(c)
+    res = {}
+    for aa, cs in syn.items():
+        tot = sum(counts.get(c, 0) for c in cs)
+        if tot:
+            for c in cs:
+                res[c] = counts.get(c, 0) * len(cs) / tot
+    return res
+
+
+def _tr(d, re=None):
+    t = dict(_T)
+    t.update(re or {})
+    return "".join(t.get(d[i:i + 3], "X") for i in range(0, len(d) - 2, 3))
+
+
+for fn in ("codons", "codon_counts", "rscu", "rare_codons", "translate_alt"):
+    if not callable(ns.get(fn)):
+        fail(f"Define the function {fn}.")
+cd = ns["codons"]
+if cd("ATGAAAT") is None:
+    fail("codons() returns None — return the list of codons.")
+for s in ("ATGAAAT", "ATGAAATAA", "", "AT"):
+    if list(cd(s)) != _cod(s):
+        fail(f"codons({s!r}) should be {_cod(s)}, got {list(cd(s))}. Only complete codons count.")
+cc = ns["codon_counts"]
+got = cc({"a": "ATGAAA", "b": "AAATAAG"})
+if got is None:
+    fail("codon_counts() returns None.")
+if dict(got) != {"ATG": 1, "AAA": 2, "TAA": 1}:
+    fail(f"codon_counts({{'a': 'ATGAAA', 'b': 'AAATAAG'}}) should count ATG 1, AAA 2, TAA 1 — across all sequences. Got {dict(got)}.")
+recs = ns["read_fasta"]("sequences.fasta")
+real = Counter()
+for s in recs.values():
+    real.update(_cod(s))
+gr = cc(recs)
+if {k: v for k, v in dict(gr).items() if v} != dict(real):
+    fail("codon_counts(records) on sequences.fasta doesn't match the expected counts. Loop over records.values() and count codons(seq) for each.")
+rs = ns["rscu"]
+small = rs({"AAA": 3, "AAG": 1})
+if small is None:
+    fail("rscu() returns None.")
+if abs(small.get("AAA", -1) - 1.5) > 1e-9 or abs(small.get("AAG", -1) - 0.5) > 1e-9:
+    fail(f"rscu({{'AAA': 3, 'AAG': 1}}) should give AAA 1.5 and AAG 0.5 (count × 2 synonyms / 4 total). Got AAA {small.get('AAA')}, AAG {small.get('AAG')}.")
+if any(small.get(c, 0) != 0 for c in _T if c not in ("AAA", "AAG")):
+    fail("rscu() should only give values for amino acids that appear (here only lysine); leave the others out.")
+leu = rs({"CTG": 6})
+for c in ("TTA", "TTG", "CTT", "CTC", "CTA"):
+    if leu.get(c) != 0:
+        fail(f"rscu({{'CTG': 6}}) should give CTG 6.0 and {c} 0.0 — every codon of a used amino acid gets a value, even unused ones.")
+if abs(leu.get("CTG", 0) - 6) > 1e-9:
+    fail("rscu({'CTG': 6}) should give CTG = 6 × 6 / 6 = 6.0.")
+exp_r = _rscu(real)
+got_r = rs(dict(real))
+for c, v in exp_r.items():
+    if c not in got_r or abs(got_r[c] - v) > 1e-6:
+        fail(f"On sequences.fasta, RSCU of {c} should be {v:.3f}, yours is {got_r.get(c)}.")
+rc = ns["rare_codons"]
+fake = {"AAA": 1.5, "AAG": 0.5, "CTG": 0.2, "CTA": 0.0, "GGG": 0.49}
+if rc(fake) is None or list(rc(fake)) != ["CTA", "CTG", "GGG"]:
+    fail(f"rare_codons({fake}) should be ['CTA', 'CTG', 'GGG']: below 0.5 (not equal), sorted. Got {rc(fake)}.")
+if list(rc(fake, threshold=1.0)) != ["AAG", "CTA", "CTG", "GGG"]:
+    fail("rare_codons(…, threshold=1.0) should use the threshold argument.")
+ta = ns["translate_alt"]
+if ta("ATGTGATGG") is None:
+    fail("translate_alt() returns None.")
+if ta("ATGTGATGG") != "M*W":
+    fail(f"translate_alt(\"ATGTGATGG\") with no reassignments should be \"M*W\" (standard code). Got {ta('ATGTGATGG')!r}. Handle reassign=None.")
+if ta("ATGTGATGG", {"TGA": "W"}) != "MWW":
+    fail("translate_alt(\"ATGTGATGG\", {\"TGA\": \"W\"}) should be \"MWW\" — TGA read as tryptophan.")
+if ta("ATGCGGCGA", {"CGG": "W"}) != "MWR":
+    fail("translate_alt(\"ATGCGGCGA\", {\"CGG\": \"W\"}) should be \"MWR\": only CGG is reassigned, CGA stays arginine.")
+if ns["CODON_TABLE"].get("TGA") != "*" or ns["CODON_TABLE"].get("CGG") != "R" or ta("TGA") != "*":
+    fail("translate_alt changed CODON_TABLE itself, so later translations are wrong. Copy it first: table = dict(CODON_TABLE), then update the copy.")
+if ta("ATGNNNTA") != "MX":
+    fail("translate_alt should give X for unknown codons and ignore an incomplete last codon.")
+rare = sorted(c for c, v in exp_r.items() if v < 0.7)
+missing = [c for c in rare if c not in out]
+if missing:
+    fail(f"Print the codons with RSCU below 0.7 for sequences.fasta, e.g. rare_codons(values, threshold=0.7). {missing[0]} is missing.")
+for name, s in recs.items():
+    if name not in out:
+        fail(f"Print a line for {name}: its TGA count and the protein ending under both codes.")
+tga = {n: _cod(s).count("TGA") for n, s in recs.items()}
+ok(f"{len(rare)} under-used codons flagged, and {sum(1 for v in tga.values() if v)} gene(s) contain an in-frame TGA that a Mycoplasma-style code would read as Trp. Your translate_alt can model any reassignment you study.")
+--- hint
+`codons`: `[seq[i:i + 3] for i in range(0, len(seq) - 2, 3)]`. `codon_counts`: start with `total = Counter()` and `total.update(codons(seq))` for each sequence.
+--- hint
+`rscu`: first group synonyms, `syn = {}` and `syn.setdefault(aa, []).append(codon)` for every codon in `CODON_TABLE`. Then for each amino acid, `total = sum(counts.get(c, 0) for c in cs)`. If total > 0, every codon gets `counts.get(c, 0) * len(cs) / total`.
+--- hint
+`translate_alt`: `table = dict(CODON_TABLE)` makes a copy; `if reassign: table.update(reassign)`; then translate with `table.get(codon, "X")`.
+--- solution
+from collections import Counter
+
+BASES = "TCAG"
+AMINO = "FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG"
+CODON_TABLE = {a + b + c: AMINO[16 * i + 4 * j + k]
+               for i, a in enumerate(BASES) for j, b in enumerate(BASES) for k, c in enumerate(BASES)}
+
+
+def read_fasta(path):
+    records, name = {}, None
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith(">"):
+                name = line[1:].split()[0]
+                records[name] = ""
+            elif name:
+                records[name] += line.upper()
+    return records
+
+
+def codons(seq):
+    """Complete in-frame codons of seq, as a list."""
+    return [seq[i:i + 3] for i in range(0, len(seq) - 2, 3)]
+
+
+def codon_counts(records):
+    """Codon -> count over all sequences in {name: seq}."""
+    total = Counter()
+    for seq in records.values():
+        total.update(codons(seq))
+    return total
+
+
+def rscu(counts):
+    """Codon -> RSCU for every codon whose amino acid appears; unused synonyms get 0.0."""
+    synonyms = {}
+    for codon, aa in CODON_TABLE.items():
+        synonyms.setdefault(aa, []).append(codon)
+    values = {}
+    for aa, cs in synonyms.items():
+        total = sum(counts.get(c, 0) for c in cs)
+        if total == 0:
+            continue
+        for c in cs:
+            values[c] = counts.get(c, 0) * len(cs) / total
+    return values
+
+
+def rare_codons(rscu_values, threshold=0.5):
+    """Sorted list of codons with RSCU < threshold."""
+    return sorted(c for c, v in rscu_values.items() if v < threshold)
+
+
+def translate_alt(dna, reassign=None):
+    """Translate with the standard code plus reassignments like {"TGA": "W"}."""
+    table = dict(CODON_TABLE)
+    if reassign:
+        table.update(reassign)
+    return "".join(table.get(c, "X") for c in codons(dna))
+
+
+records = read_fasta("sequences.fasta")
+counts = codon_counts(records)
+values = rscu(counts)
+
+print("Most used codons:", counts.most_common(5))
+rare = rare_codons(values, threshold=0.7)
+print(f"Under-used codons (RSCU < 0.7): {len(rare)}")
+print(" ".join(f"{c}({CODON_TABLE[c]})" for c in rare))
+print()
+print(f"{'gene':<10} {'TGA':>3}  standard  TGA->Trp")
+for name, seq in records.items():
+    std = translate_alt(seq)
+    myco = translate_alt(seq, {"TGA": "W"})
+    print(f"{name:<10} {codons(seq).count('TGA'):>3}  {std[-5:]:>8}  {myco[-5:]:>8}")
+--- explain
+- `Counter.update` adds counts from each gene, so the table covers the whole set, the way codon-usage databases are built.
+- `rscu` first groups codons by amino acid with `setdefault`. That one dictionary is the genetic code turned inside out.
+- `translate_alt` copies the table before changing it. Without the copy, a single call with `{"TGA": "W"}` would silently change every later translation in the program, a classic hard-to-find bug.
+- To explore a sense-codon reassignment like CGG→Trp, call `translate_alt(seq, {"CGG": "W"})` and compare it with the standard protein position by position. That's a quick way to see which residues a code change would alter.
+
+=== lesson proj_fastq
+title: FASTQ quality filter
+minutes: 25
+--- text
+Every sequencing run starts with quality control. A **FASTQ** file stores each read as **four lines**:
+
+```python
+# @read001                 <- header: @ + read id
+# CCATCGAAATACGACC...      <- sequence
+# +                        <- separator
+# ?FEG@6CB<E<BDGDB...      <- one quality character per base
+```
+
+Each quality character encodes a **Phred score** Q: `Q = ord(char) - 33` (Phred+33). Q = 30 means a 1-in-1000 chance that the base is wrong; Q = 20 is 1 in 100.
+
+```python
+print(ord("I") - 33)   # 40: excellent
+print(ord("5") - 33)   # 20: so-so
+```
+
+A simple filter keeps reads that are **long enough** and have a **high enough mean quality**. Read four lines at a time. Don't look for lines starting with `@`, because `@` is also a valid quality character!
+
+> **In the lab:** this is the job of tools like fastp or Trimmomatic, in miniature. After this project you'll know what "filtered for Q ≥ 30" in a methods section actually did to your data.
+--- example
+with open("reads.fastq") as f:
+    lines = [line.rstrip("\n") for line in f]
+
+header, seq, plus, qual = lines[0:4]
+scores = [ord(c) - 33 for c in qual]
+print(header[1:], len(seq), "bp")
+print("first 10 scores:", scores[:10])
+print(f"mean quality: {sum(scores) / len(scores):.1f}")
+--- task
+Complete the functions in the starter:
+
+1. `read_fastq(path)` → list of `(read_id, seq, qual)` tuples; `read_id` without the leading `@`.
+2. `mean_quality(qual)` → mean Phred+33 score of a quality string (`0.0` if empty).
+3. `filter_reads(reads, min_len=40, min_q=30)` → the reads with `len(seq) >= min_len` **and** mean quality `>= min_q`, in their original order.
+4. `write_fastq(reads, path)` → write the reads in FASTQ format (four lines each, header starting with `@`).
+5. Filter **reads.fastq** with the defaults, write the passing reads to **filtered.fastq**, and print a summary: total reads, reads kept, failed for length, failed for quality (count a read that fails both under length).
+--- starter
+def read_fastq(path):
+    """List of (read_id, seq, qual); read_id without '@'."""
+    pass
+
+
+def mean_quality(qual):
+    """Mean Phred+33 score; 0.0 for an empty string."""
+    pass
+
+
+def filter_reads(reads, min_len=40, min_q=30):
+    """Reads that are long enough AND good enough, in order."""
+    pass
+
+
+def write_fastq(reads, path):
+    """Write (read_id, seq, qual) tuples as FASTQ."""
+    pass
+
+
+reads = read_fastq("reads.fastq")
+--- check
+import os
+
+
+def _read(path):
+    with open(path) as f:
+        L = [l.rstrip("\n") for l in f]
+    while L and not L[-1].strip():
+        L.pop()
+    return [(L[i][1:], L[i + 1].strip(), L[i + 3].strip()) for i in range(0, len(L) - 3, 4)]
+
+
+def _mq(q):
+    return sum(ord(c) - 33 for c in q) / len(q) if q else 0.0
+
+
+def _filt(reads, ml=40, mq=30):
+    return [r for r in reads if len(r[1]) >= ml and _mq(r[2]) >= mq]
+
+
+for fn in ("read_fastq", "mean_quality", "filter_reads", "write_fastq"):
+    if not callable(ns.get(fn)):
+        fail(f"Define the function {fn}.")
+real = _read("reads.fastq")
+got = ns["read_fastq"]("reads.fastq")
+if got is None:
+    fail("read_fastq() returns None — return the list of (read_id, seq, qual) tuples.")
+got = [tuple(x) for x in got]
+if len(got) != len(real):
+    fail(f"read_fastq should find {len(real)} reads, yours found {len(got)}. Read the file four lines at a time; don't search for '@', which can also be a quality character.")
+if got[0][0].startswith("@"):
+    fail("Leave the @ off the read id: header[1:].")
+if got != real:
+    bad = next(i for i in range(len(real)) if got[i] != real[i])
+    fail(f"Read {bad + 1} doesn't match: expected id {real[bad][0]} with a {len(real[bad][1])}-base sequence. Strip the newline from each line.")
+mq = ns["mean_quality"]
+if mq("IIII") is None:
+    fail("mean_quality() returns None.")
+if abs(mq("IIII") - 40) > 1e-9 or abs(mq("!!") - 0) > 1e-9 or abs(mq("5?") - 25) > 1e-9:
+    if abs(mq("IIII") - 73) < 1e-9:
+        fail("mean_quality(\"IIII\") should be 40: subtract 33 from each ord() value.")
+    fail("mean_quality should average ord(c) - 33 over the characters. \"IIII\" → 40, \"5?\" → 25.")
+try:
+    if mq("") != 0:
+        fail("mean_quality(\"\") should be 0.0.")
+except ZeroDivisionError:
+    fail("mean_quality(\"\") crashes. Return 0.0 for an empty quality string.")
+fr = ns["filter_reads"]
+for ml, q in ((40, 30), (60, 20), (0, 0), (101, 0)):
+    g = fr(real, ml, q) if (ml, q) != (40, 30) else fr(real)
+    if g is None:
+        fail("filter_reads() returns None — return the list of passing reads.")
+    if [tuple(x) for x in g] != _filt(real, ml, q):
+        fail(f"filter_reads(reads, min_len={ml}, min_q={q}) should keep {len(_filt(real, ml, q))} reads, yours kept {len(g)}. Keep reads with len(seq) >= min_len AND mean quality >= min_q.")
+if fr([]) != []:
+    fail("filter_reads([]) should return an empty list.")
+test_path = "_check_tmp.fastq"
+ns["write_fastq"]([("r1", "ACGT", "IIII"), ("r2", "GG", "#@")], test_path)
+try:
+    back = _read(test_path)
+finally:
+    if os.path.exists(test_path):
+        os.remove(test_path)
+if back != [("r1", "ACGT", "IIII"), ("r2", "GG", "#@")]:
+    fail("write_fastq should write four lines per read: @id, sequence, +, quality — each ending with \\n.")
+if not os.path.exists("filtered.fastq"):
+    fail("Write the passing reads to filtered.fastq with write_fastq(kept, \"filtered.fastq\").")
+exp = _filt(real)
+if _read("filtered.fastq") != exp:
+    fail(f"filtered.fastq should hold the {len(exp)} reads that pass the default filter.")
+short = sum(1 for r in real if len(r[1]) < 40)
+lowq = sum(1 for r in real if len(r[1]) >= 40 and _mq(r[2]) < 30)
+nums = out.replace(",", " ").replace(":", " ").split()
+for v, what in ((len(real), "total reads"), (len(exp), "reads kept"), (short, "failed for length"), (lowq, "failed for quality")):
+    if str(v) not in nums:
+        fail(f"Print the summary: {what} should be {v}.")
+ok(f"{len(exp)} of {len(real)} reads kept ({short} too short, {lowq} low quality), written to filtered.fastq. Same logic, any size of file: on your Mac this runs on a full MiSeq run.")
+--- hint
+`read_fastq`: read all lines with `[line.rstrip("\n") for line in f]`, then `for i in range(0, len(lines) - 3, 4):` and take `lines[i][1:]`, `lines[i + 1]`, `lines[i + 3]`.
+--- hint
+`filter_reads`: `[r for r in reads if len(r[1]) >= min_len and mean_quality(r[2]) >= min_q]`. `write_fastq`: `f.write(f"@{rid}\n{seq}\n+\n{qual}\n")` for each read.
+--- hint
+For the summary, count separately: `short = sum(1 for r in reads if len(r[1]) < 40)` and low quality among the rest: `len(r[1]) >= 40 and mean_quality(r[2]) < 30`.
+--- solution
+def read_fastq(path):
+    """List of (read_id, seq, qual); read_id without '@'."""
+    with open(path) as f:
+        lines = [line.rstrip("\n") for line in f]
+    reads = []
+    for i in range(0, len(lines) - 3, 4):
+        reads.append((lines[i][1:], lines[i + 1].strip(), lines[i + 3].strip()))
+    return reads
+
+
+def mean_quality(qual):
+    """Mean Phred+33 score; 0.0 for an empty string."""
+    if not qual:
+        return 0.0
+    return sum(ord(c) - 33 for c in qual) / len(qual)
+
+
+def filter_reads(reads, min_len=40, min_q=30):
+    """Reads that are long enough AND good enough, in order."""
+    return [r for r in reads if len(r[1]) >= min_len and mean_quality(r[2]) >= min_q]
+
+
+def write_fastq(reads, path):
+    """Write (read_id, seq, qual) tuples as FASTQ."""
+    with open(path, "w") as f:
+        for rid, seq, qual in reads:
+            f.write(f"@{rid}\n{seq}\n+\n{qual}\n")
+
+
+reads = read_fastq("reads.fastq")
+kept = filter_reads(reads)
+write_fastq(kept, "filtered.fastq")
+
+short = sum(1 for r in reads if len(r[1]) < 40)
+low_q = sum(1 for r in reads if len(r[1]) >= 40 and mean_quality(r[2]) < 30)
+print(f"Total reads:        {len(reads)}")
+print(f"Kept:               {len(kept)}")
+print(f"Failed for length:  {short}")
+print(f"Failed for quality: {low_q}")
+if kept:
+    print(f"Mean length kept:   {sum(len(r[1]) for r in kept) / len(kept):.1f} bp")
+--- explain
+- Reading four lines at a time is the only safe way to parse FASTQ: `@` and `+` are both legal quality characters, so searching for them can mistake a quality line for a header.
+- Each read is a `(id, seq, qual)` tuple, so `filter_reads` is a single list comprehension, and the original order is kept for free.
+- `write_fastq` produces a valid file that any aligner (bowtie2, BWA, STAR) would accept.
+- On real data, the same functions work on millions of reads. For gzipped files, swap `open(path)` for `gzip.open(path, "rt")`.

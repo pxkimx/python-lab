@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Python Lab</title>
+<link rel="icon" href="icon.svg">
+<script>try{var t=localStorage.getItem("pl-theme");document.documentElement.setAttribute("data-theme",t==="dark"?"dark":"light")}catch(e){document.documentElement.setAttribute("data-theme","light")}</script>
+<link rel="stylesheet" href="vendor/codemirror.min.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="bg"></canvas>
+<div class="wrap">
+<header class="top">
+  <div class="bar">
+    <div class="brand" id="brand" title="Course map"><img src="icon.svg" alt="">Python Lab<small id="ver"></small></div>
+    <nav class="tabs" id="tabs">
+      <button data-p="learn" class="on">Learn</button>
+      <button data-p="lesson" id="tabLesson" disabled>Lesson</button>
+      <button data-p="projects">Projects</button>
+      <button data-p="playground">Playground</button>
+      <button data-p="cheats">Cheat sheet</button>
+    </nav>
+    <div class="meter" id="meter" title="Lessons completed"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15" class="m-bg"/><circle cx="18" cy="18" r="15" class="m-fg" id="meterArc"/></svg><span id="meterText">0%</span></div>
+    <div class="pill" id="themePill" role="group" aria-label="Theme">
+      <button data-t="light" title="Light"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg>Light</button>
+      <button data-t="dark" title="Dark"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>Dark</button>
+    </div>
+  </div>
+</header>
+
+<main>
+<!-- ================= LEARN ================= -->
+<section class="page on" id="p-learn">
+  <div class="hero">
+    <div class="hero-text">
+      <div class="kicker">From your first line of code to your own lab tools</div>
+      <h1>Learn Python by building <span class="grad">real lab software</span></h1>
+      <p class="lede">Short lessons, real code that runs on this Mac, and exercises that check themselves. Every example comes from the bench: dilutions, DNA sequences, plate readers, qPCR, growth curves and FASTA files — ending with tools like the ones in your Toolbox.</p>
+      <div class="row">
+        <button class="btn primary lg" id="continueBtn">Start the first lesson</button>
+        <span class="muted small" id="continueNote"></span>
+      </div>
+    </div>
+    <div class="hero-term card" aria-hidden="true">
+      <div class="term-dots"><i></i><i></i><i></i><span>gc_tool.py</span></div>
+      <pre class="term" id="heroTerm"></pre>
+    </div>
+  </div>
+  <div class="stats-row" id="statsRow"></div>
+  <h2 class="sec">The course</h2>
+  <div class="chapters" id="chapters"></div>
+  <h2 class="sec">How it works</h2>
+  <div class="grid g3 how">
+    <div class="card"><div class="how-n">1</div><h3>Read a short idea</h3><p class="muted">Each lesson explains one thing, with examples you can run and change.</p></div>
+    <div class="card"><div class="how-n">2</div><h3>Write real Python</h3><p class="muted">The editor runs your code with the same Python your tools use, including pandas and matplotlib.</p></div>
+    <div class="card"><div class="how-n">3</div><h3>Check, then build</h3><p class="muted">Press Check to have your solution tested. Stuck? Hints, the solution, or ask the tutor.</p></div>
+  </div>
+</section>
+
+<!-- ================= LESSON ================= -->
+<section class="page" id="p-lesson">
+  <div class="lessonbar">
+    <button class="btn sm ghost" id="backMap">← Course</button>
+    <div class="crumb" id="crumb"></div>
+    <div class="stepper" id="stepper"></div>
+    <span class="spacer"></span>
+    <button class="btn sm" id="prevBtn">‹ Previous</button>
+    <button class="btn sm" id="nextBtn">Next ›</button>
+  </div>
+  <div class="lesson-grid">
+    <article class="card reading" id="reading">
+      <div class="l-head"><span class="l-num" id="lNum"></span><span class="l-min" id="lMin"></span><span class="l-done" id="lDone">✓ Completed</span></div>
+      <h1 id="lTitle"></h1>
+      <div class="md" id="lText"></div>
+      <div class="example" id="lExampleBox">
+        <div class="ex-head"><b>Example</b><span class="spacer"></span><button class="btn sm" id="exRun">▶ Run example</button><button class="btn sm ghost" id="exCopy">Copy into editor</button></div>
+        <div class="cm-static" id="lExample"></div>
+        <pre class="ex-out" id="exOut"></pre>
+      </div>
+      <div class="task card-inner">
+        <div class="task-head"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h11"/></svg>Your task</div>
+        <div class="md" id="lTask"></div>
+        <div class="hints" id="hints"></div>
+        <div class="row" style="margin-top:12px">
+          <button class="btn sm" id="hintBtn">💡 Hint</button>
+          <button class="btn sm ghost" id="solBtn">Show solution</button>
+        </div>
+        <div class="solution" id="solution"></div>
+      </div>
+    </article>
+    <div class="workbench" id="workbench">
+      <div class="card editor-card">
+        <div class="ed-bar">
+          <span class="ed-file"><i class="dot"></i><span id="edName">lesson.py</span></span>
+          <span class="spacer"></span>
+          <button class="btn sm ghost" id="resetBtn" title="Start again from the starter code">Reset</button>
+          <button class="btn sm" id="tutorBtn" title="Ask the tutor about your code">✦ Ask tutor</button>
+          <button class="btn sm" id="runBtn" title="Run (⌘↵)">▶ Run</button>
+          <button class="btn sm primary" id="checkBtn" title="Check (⇧⌘↵)">✓ Check</button>
+        </div>
+        <div class="editor" id="editor"></div>
+        <div class="verdict" id="verdict"></div>
+        <div class="out-tabs" id="outTabs">
+          <button data-o="output" class="on">Output</button>
+          <button data-o="vars">Variables <span class="count" id="varCount"></span></button>
+          <button data-o="plots">Plots <span class="count" id="plotCount"></span></button>
+          <span class="spacer"></span>
+          <span class="runtime" id="runtime"></span>
+        </div>
+        <div class="out-panel on" id="o-output"><pre class="console" id="console"><span class="faint">Press ▶ Run to see what your code prints.</span></pre></div>
+        <div class="out-panel" id="o-vars"><div class="vars" id="vars"></div></div>
+        <div class="out-panel" id="o-plots"><div class="plots" id="plots"></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= PROJECTS ================= -->
+<section class="page" id="p-projects">
+  <div class="kicker">Capstones</div>
+  <h1>Build real tools</h1>
+  <p class="lede">Bigger programs that combine everything: each one is a small, working piece of lab software you could keep using. Your code is tested on the real example data files.</p>
+  <div class="projects" id="projectList"></div>
+</section>
+
+<!-- ================= PLAYGROUND ================= -->
+<section class="page" id="p-playground">
+  <div class="pg-grid">
+    <div class="card editor-card">
+      <div class="ed-bar">
+        <span class="ed-file"><i class="dot"></i>playground.py</span>
+        <span class="spacer"></span>
+        <select id="pgSnippets" title="Start from a snippet"><option value="">Start from a snippet…</option></select>
+        <button class="btn sm ghost" id="pgClear">Clear</button>
+        <button class="btn sm ghost" id="pgTutor">✦ Ask tutor</button>
+        <button class="btn sm primary" id="pgRun" title="Run (⌘↵)">▶ Run</button>
+      </div>
+      <div class="editor tall" id="pgEditor"></div>
+      <div class="out-tabs" id="pgOutTabs">
+        <button data-o="output" class="on">Output</button>
+        <button data-o="vars">Variables <span class="count" id="pgVarCount"></span></button>
+        <button data-o="plots">Plots <span class="count" id="pgPlotCount"></span></button>
+        <button data-o="input">Input</button>
+        <span class="spacer"></span><span class="runtime" id="pgRuntime"></span>
+      </div>
+      <div class="out-panel on" id="pg-output"><pre class="console" id="pgConsole"><span class="faint">Anything goes here. Your code is saved as you type.</span></pre></div>
+      <div class="out-panel" id="pg-vars"><div class="vars" id="pgVars"></div></div>
+      <div class="out-panel" id="pg-plots"><div class="plots" id="pgPlots"></div></div>
+      <div class="out-panel" id="pg-input"><p class="muted small" style="margin:0 0 6px">If your program uses <code>input()</code>, type its answers here, one per line.</p><textarea id="pgStdin" rows="5" spellcheck="false"></textarea></div>
+    </div>
+    <aside class="card files-card">
+      <div class="row"><h2 style="margin:0">Files</h2><span class="spacer"></span><button class="btn sm ghost" id="revealBtn" title="Show the folder in Finder">Show in Finder</button></div>
+      <p class="muted small">Your code runs in this folder, so <code>open("sequences.fasta")</code> just works. Files your programs write appear here too.</p>
+      <div class="drop" id="drop"><b>Drop your own file here</b><span class="muted small">FASTA, CSV, TXT… or <a href="#" id="browse">browse</a></span><input type="file" id="fileInput" hidden multiple></div>
+      <div class="files" id="files"></div>
+    </aside>
+  </div>
+  <div class="card preview" id="filePreview"><div class="row"><b id="fpName"></b><span class="spacer"></span><button class="btn sm ghost" id="fpInsert">Insert code to read it</button><button class="btn sm ghost" id="fpClose">Close</button></div><pre id="fpText"></pre></div>
+</section>
+
+<!-- ================= CHEAT SHEET ================= -->
+<section class="page" id="p-cheats">
+  <div class="kicker">Reference</div>
+  <h1>Cheat sheet</h1>
+  <p class="lede">The Python you'll use every day, on one page. Press <b>Try it</b> on any snippet to open it in the Playground.</p>
+  <div class="card md cheats" id="cheats"></div>
+</section>
+</main>
+</div>
+
+<!-- tutor drawer -->
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <div class="dr-head"><b>✦ Tutor</b><span class="muted small" id="drCtx"></span><span class="spacer"></span><button class="btn sm ghost" id="drClose">Close</button></div>
+  <div class="dr-body" id="drBody"></div>
+  <div class="dr-setup" id="drSetup"></div>
+  <form class="dr-ask" id="drForm">
+    <textarea id="drInput" rows="2" placeholder="Ask about your code, an error, or an idea…"></textarea>
+    <button class="btn primary sm" id="drSend">Ask</button>
+  </form>
+  <div class="dr-quick" id="drQuick">
+    <button data-q="Why doesn't my code work?">Why doesn't it work?</button>
+    <button data-q="Explain this error in simple words.">Explain the error</button>
+    <button data-q="Give me a small hint for the next step, without the solution.">Next step?</button>
+    <button data-q="Explain line by line what my code does.">Explain my code</button>
+  </div>
+</aside>
+<div class="toast" id="toast"></div>
+<div class="burst" id="burst"></div>
+
+<script src="vendor/codemirror.min.js"></script>
+<script src="vendor/python.min.js"></script>
+<script src="vendor/matchbrackets.min.js"></script>
+<script src="vendor/closebrackets.min.js"></script>
+<script src="vendor/comment.min.js"></script>
+<script src="vendor/runmode.min.js"></script>
+<script src="md.js"></script>
+<script src="bg.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

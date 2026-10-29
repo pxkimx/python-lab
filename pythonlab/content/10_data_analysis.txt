@@ -1,0 +1,574 @@
+@chapter Data analysis with pandas
+@blurb Tables, summaries, ΔΔCt, plots and curve fitting: the pandas, matplotlib and numpy toolkit scientists use every day.
+@icon chart
+
+=== lesson pandas_basics
+title: DataFrames: a spreadsheet inside Python
+minutes: 12
+--- text
+Reading CSV files line by line works, but for tables there is a far more powerful tool: **pandas**. It isn't part of the standard library, but it's installed here (and in almost every scientific Python setup). Everyone imports it under the short name `pd`:
+
+```python
+import pandas as pd
+df = pd.read_csv("expression.csv")
+```
+
+`df` is a **DataFrame**: a table with named columns, like a spreadsheet sheet. Things you'll do all the time:
+
+| Code | Gives |
+|---|---|
+| `df.head()` | the first 5 rows |
+| `df.shape` | (rows, columns) |
+| `df.columns` | the column names |
+| `df["p_value"]` | one column (a **Series**) |
+| `df[["gene", "p_value"]]` | several columns |
+| `df["p_value"].min()` | also `.max()`, `.mean()`, `.median()`, `.std()` |
+| `df.sort_values("p_value")` | rows sorted by a column |
+
+The real magic is **filtering**. A comparison on a column checks every row at once and gives True/False for each; putting that inside `df[...]` keeps only the True rows:
+
+```python
+low_p = df[df["p_value"] < 0.05]
+```
+
+To combine conditions, use `&` (and), `|` (or), and **put each condition in brackets**:
+
+```python
+up = df[(df["p_value"] < 0.05) & (df["log2_fold_change"] > 1)]
+```
+
+`df["log2_fold_change"].abs()` gives absolute values, so `.abs() > 1` means "changed at least 2-fold, up **or** down".
+
+> **In the lab:** this is the "significant genes" filter of every RNA-seq or proteomics paper, in one line. No copy-pasting between Excel sheets, and you can rerun it on the next dataset instantly.
+--- example
+import pandas as pd
+
+df = pd.read_csv("expression.csv")
+print(df.head())
+print(df.shape, "rows x columns")
+print(list(df.columns))
+print("lowest p:", df["p_value"].min())
+print(df[df["gene"] == "LMNB1"])
+--- task
+`expression.csv` holds an RNA-seq comparison of senescent vs. young fibroblasts (columns `gene, base_mean, log2_fold_change, p_value`).
+
+1. Read it into a DataFrame called `df` and print `df.head()`.
+2. Store the number of genes (rows) in `n_genes`.
+3. Make `sig`: the rows with `p_value < 0.05` **and** an absolute `log2_fold_change` greater than 1.
+4. Make `sig_up`: the rows of `sig` with a positive `log2_fold_change`, sorted from the highest fold change down (`ascending=False`).
+5. Print how many significant genes there are, and print `sig_up`.
+--- starter
+import pandas as pd
+
+df = pd.read_csv("expression.csv")
+
+--- check
+import pandas as pd
+full = pd.read_csv("expression.csv")
+want = full[(full["p_value"] < 0.05) & (full["log2_fold_change"].abs() > 1)]
+if not isinstance(ns.get("df"), pd.DataFrame):
+    fail("Read expression.csv into a DataFrame called df with pd.read_csv.")
+if ns.get("n_genes") != len(full):
+    fail(f"n_genes should be the number of rows in df ({len(full)} genes): use len(df) or df.shape[0].")
+sig = ns.get("sig")
+if not isinstance(sig, pd.DataFrame):
+    fail("Make sig by filtering df: df[(condition 1) & (condition 2)].")
+got = set(sig["gene"]) if "gene" in sig.columns else set()
+up_only = set(full[(full["p_value"] < 0.05) & (full["log2_fold_change"] > 1)]["gene"])
+if got == up_only:
+    fail("sig only has the up-regulated genes. Use the absolute value, df['log2_fold_change'].abs() > 1, so down-regulated genes count too.")
+if got == set(full[full["p_value"] < 0.05]["gene"]):
+    fail("sig is filtered on p_value only. Add the fold-change condition with &.")
+if got != set(want["gene"]):
+    fail(f"sig has {len(sig)} genes; there should be {len(want)}. Check both conditions: p_value < 0.05 and abs(log2_fold_change) > 1.")
+su = ns.get("sig_up")
+if not isinstance(su, pd.DataFrame):
+    fail("Make sig_up from sig: the rows with log2_fold_change > 0.")
+w_up = want[want["log2_fold_change"] > 0].sort_values("log2_fold_change", ascending=False)
+if set(su["gene"]) != set(w_up["gene"]):
+    fail(f"sig_up has {len(su)} genes; it should have the {len(w_up)} significant genes with a positive fold change.")
+if list(su["gene"]) != list(w_up["gene"]):
+    fail("sig_up has the right genes but not in order. Use .sort_values('log2_fold_change', ascending=False).")
+if str(len(want)) not in out:
+    fail(f"Print the number of significant genes ({len(want)}).")
+ok(f"{len(want)} significant genes, led by {w_up['gene'].iloc[0]}: a senescence signature. That filter is the core of countless figures.")
+--- hint
+`n_genes = len(df)`. For `sig`: `df[(df["p_value"] < 0.05) & (df["log2_fold_change"].abs() > 1)]` — the brackets around each condition matter.
+--- hint
+`sig_up = sig[sig["log2_fold_change"] > 0].sort_values("log2_fold_change", ascending=False)`
+--- solution
+import pandas as pd
+
+df = pd.read_csv("expression.csv")
+print(df.head())
+n_genes = len(df)
+
+sig = df[(df["p_value"] < 0.05) & (df["log2_fold_change"].abs() > 1)]
+sig_up = sig[sig["log2_fold_change"] > 0].sort_values("log2_fold_change", ascending=False)
+
+print(len(sig), "significant genes out of", n_genes)
+print(sig_up)
+
+=== lesson groupby
+title: groupby: summaries per group
+minutes: 11
+--- text
+In chapter 9 you grouped replicates by hand with a `defaultdict`. pandas does it with **groupby**: *split* the table into groups, *apply* a summary to each, *combine* the results.
+
+```python
+df.groupby("condition")["ct"].mean()
+```
+
+reads as: *"group the rows by condition, take the ct column, and average it within each group."*
+
+You can group by **several** columns at once by passing a list. The result has one row per combination:
+
+```python
+means = df.groupby(["condition", "gene"])["ct"].mean()
+print(means["control", "GAPDH"])     # one value
+```
+
+Other summaries work the same way: `.std()`, `.median()`, `.count()`, `.min()`. Or ask for several at once:
+
+```python
+df.groupby(["condition", "gene"])["ct"].agg(["mean", "std", "count"])
+```
+
+A grouped result with two levels can be turned into a neat table with `.unstack()`: the last grouping level becomes the columns.
+
+```python
+table = means.unstack()     # rows = condition, columns = gene
+```
+
+`.round(2)` tidies up numbers for printing.
+
+> **In the lab:** this is a pivot table, but written down. Next time you get a qPCR export, the same three lines summarise it, with no risk of dragging a formula over the wrong cells.
+--- example
+import pandas as pd
+
+df = pd.read_csv("qpcr.csv")
+print(df.head())
+print(df["gene"].unique())
+
+print(df.groupby("gene")["ct"].mean().round(2))
+print(df.groupby(["condition", "gene"])["ct"].agg(["mean", "std", "count"]).round(2))
+--- task
+`qpcr.csv` has the columns `sample, condition, gene, replicate, ct`: control and progerin cells, 3 biological samples × 3 technical replicates, for 5 genes.
+
+1. Read it into `df`.
+2. Make `mean_ct`: the mean `ct` for every combination of `condition` and `gene`.
+3. Make `sd_ct`: the standard deviation of `ct` for the same groups.
+4. Make `table = mean_ct.unstack()` and print it rounded to 2 decimals.
+--- starter
+import pandas as pd
+
+df = pd.read_csv("qpcr.csv")
+
+--- check
+import pandas as pd
+full = pd.read_csv("qpcr.csv")
+want_m = full.groupby(["condition", "gene"])["ct"].mean()
+want_s = full.groupby(["condition", "gene"])["ct"].std()
+
+def value(obj, cond, gene):
+    try:
+        v = obj.loc[(cond, gene)]
+    except Exception:
+        v = obj.loc[cond, gene]
+    if isinstance(v, (pd.Series, pd.DataFrame)):
+        v = v["ct"] if "ct" in v else v.iloc[0]
+        if isinstance(v, pd.Series):
+            v = v.iloc[0]
+    return float(v)
+
+for name, want in (("mean_ct", want_m), ("sd_ct", want_s)):
+    obj = ns.get(name)
+    if not isinstance(obj, (pd.Series, pd.DataFrame)):
+        fail(f"Make {name} with df.groupby([...])['ct'].{'mean' if name == 'mean_ct' else 'std'}().")
+    for (cond, gene), w in want.items():
+        try:
+            got = value(obj, cond, gene)
+        except Exception:
+            fail(f"{name} has no entry for ({cond!r}, {gene!r}). Group by both columns: groupby(['condition', 'gene']).")
+        if abs(got - w) > 1e-6:
+            fail(f"{name} for {cond} / {gene} is {got:.3f}, but it should be {w:.3f}. Did you take the ct column and use .{'mean' if name == 'mean_ct' else 'std'}()?")
+t = ns.get("table")
+if not isinstance(t, pd.DataFrame) or "GAPDH" not in t.columns:
+    fail("Make table = mean_ct.unstack(): conditions as rows, genes as columns.")
+if "GAPDH" not in out:
+    fail("Print the table.")
+ok("GAPDH is steady (~18.2) in both conditions — a good reference gene — while CDKN1A and IL6 come up much earlier in progerin cells.")
+--- hint
+`mean_ct = df.groupby(["condition", "gene"])["ct"].mean()` — and the same with `.std()` for `sd_ct`.
+--- hint
+`table = mean_ct.unstack()` then `print(table.round(2))`.
+--- solution
+import pandas as pd
+
+df = pd.read_csv("qpcr.csv")
+mean_ct = df.groupby(["condition", "gene"])["ct"].mean()
+sd_ct = df.groupby(["condition", "gene"])["ct"].std()
+
+table = mean_ct.unstack()
+print(table.round(2))
+print(sd_ct.unstack().round(2))
+
+=== lesson ddct
+title: ΔΔCt: relative expression from qPCR
+minutes: 14
+--- text
+A Ct value on its own means little: it depends on how much cDNA went in. The **ΔΔCt method** (Livak) fixes that in two steps.
+
+1. **ΔCt** — normalise to a reference gene measured in the same sample: `ΔCt = Ct(gene) − Ct(GAPDH)`. This cancels out loading differences.
+2. **ΔΔCt** — compare with the control condition (the *calibrator*): `ΔΔCt = ΔCt(progerin) − ΔCt(control)`.
+
+Then, because each PCR cycle roughly doubles the product, the **fold change** is:
+
+`fold change = 2 ** (−ΔΔCt)`
+
+A *lower* Ct means *more* template, which is why there's a minus sign. A fold change of 1 means no change, 4 means four times more mRNA, 0.25 means four times less.
+
+With a grouped result from the last lesson, picking out single numbers is easy:
+
+```python
+m = df.groupby(["condition", "gene"])["ct"].mean()
+dct_control = m["control", "IL6"] - m["control", "GAPDH"]
+```
+
+| Step | IL6 example |
+|---|---|
+| ΔCt control | 29.38 − 18.16 = 11.22 |
+| ΔCt progerin | 26.29 − 18.14 = 8.15 |
+| ΔΔCt | 8.15 − 11.22 = −3.07 |
+| fold change | 2 ** 3.07 ≈ 8.4 |
+
+> **In the lab:** the method assumes ~100 % primer efficiency (a doubling per cycle). Check that with a standard curve when you validate a new primer pair; if efficiency is far off, use the Pfaffl method instead.
+--- example
+import pandas as pd
+
+df = pd.read_csv("qpcr.csv")
+m = df.groupby(["condition", "gene"])["ct"].mean()
+
+gene = "IL6"
+dct_control = m["control", gene] - m["control", "GAPDH"]
+dct_progerin = m["progerin", gene] - m["progerin", "GAPDH"]
+ddct = dct_progerin - dct_control
+print(f"{gene}: dCt control {dct_control:.2f}, dCt progerin {dct_progerin:.2f}")
+print(f"ddCt {ddct:.2f}, fold change {2 ** -ddct:.2f}")
+--- task
+Calculate the progerin vs. control fold change for every target gene in `qpcr.csv`.
+
+1. Group the Ct values by `condition` and `gene` and take the mean (as in the example).
+2. For each target gene `LMNA`, `CDKN1A`, `IL6` and `LMNB1`: compute ΔCt in each condition (normalised to `GAPDH`), then ΔΔCt (progerin − control), then the fold change `2 ** -ddct`.
+3. Store the fold changes in a dictionary `fold_change` with the gene names as keys.
+4. Print each gene with its fold change rounded to 2 decimals, and say whether it is up or down in progerin cells.
+--- starter
+import pandas as pd
+
+df = pd.read_csv("qpcr.csv")
+targets = ["LMNA", "CDKN1A", "IL6", "LMNB1"]
+
+fold_change = {}
+
+--- check
+import pandas as pd
+full = pd.read_csv("qpcr.csv")
+m = full.groupby(["condition", "gene"])["ct"].mean()
+want = {}
+for g in ["LMNA", "CDKN1A", "IL6", "LMNB1"]:
+    dd = (m["progerin", g] - m["progerin", "GAPDH"]) - (m["control", g] - m["control", "GAPDH"])
+    want[g] = 2 ** -dd
+fc = ns.get("fold_change")
+if isinstance(fc, pd.Series):
+    fc = fc.to_dict()
+if not isinstance(fc, dict) or not fc:
+    fail("Fill the dictionary fold_change, e.g. fold_change['IL6'] = 2 ** -ddct.")
+for g, w in want.items():
+    if g not in fc:
+        fail(f"fold_change has no entry for {g}.")
+    got = float(fc[g])
+    if abs(got - w) < 0.01:
+        continue
+    dd = -__import__("math").log2(w)
+    if abs(got - 2 ** dd) < 0.01:
+        fail(f"fold_change['{g}'] is {got:.2f}, the inverse of the right answer. The formula is 2 ** -ddct (minus sign!), with ddct = dCt(progerin) − dCt(control).")
+    if abs(got - dd) < 0.01 or abs(got + dd) < 0.01:
+        fail(f"fold_change['{g}'] is {got:.2f}, which looks like ΔΔCt itself. Convert it with 2 ** -ddct.")
+    fail(f"fold_change['{g}'] is {got:.2f}, but should be about {w:.2f}. Print dCt for each condition to see which step goes wrong.")
+if "IL6" not in out:
+    fail("Print each gene with its fold change.")
+ok(f"IL6 ×{want['IL6']:.1f} and CDKN1A (p21) ×{want['CDKN1A']:.1f} up, LMNB1 ×{want['LMNB1']:.2f} down: the classic progerin/senescence picture, computed in a dozen lines.")
+--- hint
+Inside a `for gene in targets:` loop: `dct_control = m["control", gene] - m["control", "GAPDH"]`, and the same for `"progerin"`.
+--- hint
+`ddct = dct_progerin - dct_control`, then `fold_change[gene] = 2 ** -ddct`. Print with `f"{gene}: {fold_change[gene]:.2f}"`.
+--- solution
+import pandas as pd
+
+df = pd.read_csv("qpcr.csv")
+targets = ["LMNA", "CDKN1A", "IL6", "LMNB1"]
+
+m = df.groupby(["condition", "gene"])["ct"].mean()
+fold_change = {}
+for gene in targets:
+    dct_control = m["control", gene] - m["control", "GAPDH"]
+    dct_progerin = m["progerin", gene] - m["progerin", "GAPDH"]
+    ddct = dct_progerin - dct_control
+    fold_change[gene] = 2 ** -ddct
+    direction = "up" if fold_change[gene] > 1 else "down"
+    print(f"{gene:7} {fold_change[gene]:6.2f}  {direction}")
+--- explain
+Each gene is first normalised to GAPDH in its own condition (ΔCt), then the progerin ΔCt is compared with the control ΔCt (ΔΔCt). `2 ** -ddct` turns cycles into a fold change. LMNA barely moves (≈0.93): progerin is made from the LMNA gene, so the total LMNA transcript level is similar.
+
+=== lesson plotting
+title: Plotting with matplotlib: a volcano plot
+minutes: 13
+--- text
+**matplotlib** draws figures. Its plotting part is always imported as `plt`:
+
+```python
+import matplotlib.pyplot as plt
+plt.scatter(x_values, y_values)
+plt.xlabel("log2 fold change")
+plt.ylabel("-log10 p-value")
+plt.title("My first volcano")
+plt.show()
+```
+
+Each `plt.` command adds to the current figure; `plt.show()` displays it (here the figure appears below the output). Common plot types:
+
+| Function | Draws |
+|---|---|
+| `plt.plot(x, y)` | a line (growth curves, time courses) |
+| `plt.scatter(x, y)` | dots (volcano plots, correlations) |
+| `plt.bar(names, heights, yerr=errors)` | bars, with optional error bars |
+| `plt.hist(values, bins=20)` | a histogram |
+| `plt.axhline(y)` / `plt.axvline(x)` | a horizontal / vertical guide line |
+
+Useful options: `color="red"`, `s=10` (dot size), `alpha=0.5` (transparency), `label="up"` plus `plt.legend()`.
+
+A **volcano plot** shows fold change on x and significance on y. Small p-values are hard to see, so we plot **−log10(p)**: p = 0.05 becomes 1.3, p = 1e-10 becomes 10. The `numpy` module (imported as `np`, more about it in the next lesson) can take the log of a whole column at once:
+
+```python
+import numpy as np
+df["neg_log10_p"] = -np.log10(df["p_value"])
+```
+
+That line also shows how to **add a new column** to a DataFrame.
+
+> **In the lab:** always label your axes with the quantity and units. A plot made by code can be regenerated identically in a second when reviewer 2 asks for a change.
+--- example
+import pandas as pd
+import matplotlib.pyplot as plt
+
+df = pd.read_csv("qpcr.csv")
+gapdh = df[df["gene"] == "GAPDH"]
+means = gapdh.groupby("sample")["ct"].mean()
+sds = gapdh.groupby("sample")["ct"].std()
+
+plt.bar(means.index, means.values, yerr=sds.values, color="steelblue", capsize=4)
+plt.ylabel("GAPDH Ct")
+plt.title("Reference gene is stable across samples")
+plt.xticks(rotation=45)
+plt.ylim(15, 20)
+plt.show()
+--- task
+Make a volcano plot from `expression.csv`.
+
+1. Read the file into `df` and add a column `neg_log10_p` holding `-np.log10(df["p_value"])`.
+2. Make `sig` as in the first lesson of this chapter (p < 0.05 and |log2 fold change| > 1).
+3. Scatter **all** genes in grey (`x` = `log2_fold_change`, `y` = `neg_log10_p`), then scatter the `sig` genes on top in red.
+4. Label the x axis (mention *log2 fold change*) and the y axis (mention *−log10 p*), and give the plot a title.
+5. Optional: add dashed guide lines with `plt.axvline(1, linestyle="--")`, `plt.axvline(-1, …)` and `plt.axhline(-np.log10(0.05), …)`.
+--- starter
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+df = pd.read_csv("expression.csv")
+
+--- check
+import sys
+import pandas as pd
+plt = sys.modules.get("matplotlib.pyplot")
+if plt is None or not plt.get_fignums():
+    fail("No figure was drawn yet. Import matplotlib.pyplot as plt and use plt.scatter(...).")
+df = ns.get("df")
+if not isinstance(df, pd.DataFrame) or "neg_log10_p" not in df.columns:
+    fail("Add the column to df: df['neg_log10_p'] = -np.log10(df['p_value']).")
+import numpy as np
+if not np.allclose(df["neg_log10_p"].values, -np.log10(df["p_value"].values)):
+    fail("neg_log10_p should be minus the log10 of p_value: -np.log10(df['p_value']).")
+ax = plt.gcf().axes[0]
+n_points = sum(len(c.get_offsets()) for c in ax.collections)
+if n_points < len(df):
+    fail(f"The plot has {n_points} points, but there are {len(df)} genes. Scatter all of df first, then the significant ones on top.")
+if len(ax.collections) < 2:
+    fail("Scatter the significant genes a second time on top, in red, so they stand out.")
+xl, yl = ax.get_xlabel().lower(), ax.get_ylabel().lower()
+if not xl:
+    fail("Label the x axis with plt.xlabel(...).")
+if not yl:
+    fail("Label the y axis with plt.ylabel(...).")
+if "log2" not in xl and "fold" not in xl:
+    fail(f"The x label is '{ax.get_xlabel()}'. Say what is plotted: log2 fold change.")
+if "log" not in yl and "p" not in yl:
+    fail(f"The y label is '{ax.get_ylabel()}'. Say what is plotted: -log10 p-value.")
+if not ax.get_title():
+    fail("Give your plot a title with plt.title(...).")
+ok("A publication-style volcano plot. Senescence genes fan out to the upper right, lamin B1 to the upper left.")
+--- hint
+`plt.scatter(df["log2_fold_change"], df["neg_log10_p"], color="grey", s=10)` draws all genes.
+--- hint
+Then the same with `sig["log2_fold_change"], sig["neg_log10_p"]` and `color="red"`. Make `sig` **after** adding the new column, so it has it too.
+--- hint
+Finish with `plt.xlabel("log2 fold change")`, `plt.ylabel("-log10 p-value")`, `plt.title("Senescent vs young")` and `plt.show()`.
+--- solution
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+df = pd.read_csv("expression.csv")
+df["neg_log10_p"] = -np.log10(df["p_value"])
+sig = df[(df["p_value"] < 0.05) & (df["log2_fold_change"].abs() > 1)]
+
+plt.scatter(df["log2_fold_change"], df["neg_log10_p"], color="grey", s=10, alpha=0.6)
+plt.scatter(sig["log2_fold_change"], sig["neg_log10_p"], color="red", s=16)
+plt.axvline(1, color="black", linestyle="--", linewidth=0.8)
+plt.axvline(-1, color="black", linestyle="--", linewidth=0.8)
+plt.axhline(-np.log10(0.05), color="black", linestyle="--", linewidth=0.8)
+plt.xlabel("log2 fold change")
+plt.ylabel("-log10 p-value")
+plt.title("Senescent vs young fibroblasts")
+plt.show()
+
+=== lesson growth_numpy
+title: numpy and a growth curve: doubling times
+minutes: 15
+--- text
+**numpy** (imported as `np`) is the number-crunching engine underneath pandas. Its key idea: do maths on a whole array of numbers at once, with no loop.
+
+```python
+import numpy as np
+od = np.array([0.05, 0.1, 0.2, 0.4])
+print(od * 2)          # [0.1 0.2 0.4 0.8]
+print(np.log(od))      # natural log of every value
+```
+
+A pandas column works with numpy functions directly: `np.log(df["WT"])`.
+
+### Why logs for growth?
+
+During **exponential phase**, bacteria double at a constant rate, so OD grows like `OD0 · e^(k·t)`. Take the natural log and it becomes a **straight line**: `ln(OD) = ln(OD0) + k·t`. The slope `k` is the growth rate, and the **doubling time** is `ln(2) / k`.
+
+So the recipe is:
+
+1. Keep only the exponential-phase points (not the lag phase, not the plateau).
+2. Fit a straight line to `ln(OD)` vs. time.
+3. Doubling time = `np.log(2) / slope`.
+
+`np.polyfit(x, y, 1)` fits a straight line (a polynomial of degree 1) and returns `[slope, intercept]`:
+
+```python
+slope, intercept = np.polyfit(time, np.log(od), 1)
+```
+
+Choosing the exponential phase with a filter, just as in pandas:
+
+```python
+mask = (df["WT"] >= 0.05) & (df["WT"] <= 0.5)
+t = df["time_min"][mask]
+```
+
+> **In the lab:** fitting the log-linear part is exactly what plate-reader software does when it reports a growth rate. Doing it yourself means you choose (and report) the window, and can apply it to 96 wells at once.
+--- example
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+df = pd.read_csv("growth_curve.csv")
+print(df.head())
+
+plt.plot(df["time_min"], df["WT"], "o-", label="WT")
+plt.yscale("log")               # a log axis: exponential phase looks straight
+plt.xlabel("time (min)")
+plt.ylabel("OD600 (log scale)")
+plt.legend()
+plt.show()
+
+od = np.array([0.05, 0.1, 0.2, 0.4])
+print(np.log(od))
+--- task
+`growth_curve.csv` has the OD600 of three *E. coli* strains (`WT`, `delta_recA`, `delta_lon`) every 20 minutes.
+
+For each strain:
+
+1. Select the exponential-phase points: **OD600 between 0.05 and 0.5** (inclusive: `>=` and `<=`).
+2. Fit a straight line to `np.log(OD)` against `time_min` with `np.polyfit(..., 1)`.
+3. Calculate the doubling time in minutes, `np.log(2) / slope`.
+4. Store the results in a dictionary `doubling_times` (strain name → minutes) and print each one rounded to 1 decimal.
+
+Optional: plot all three curves on a log y axis.
+--- starter
+import numpy as np
+import pandas as pd
+
+df = pd.read_csv("growth_curve.csv")
+strains = ["WT", "delta_recA", "delta_lon"]
+
+doubling_times = {}
+
+--- check
+import numpy as np
+import pandas as pd
+full = pd.read_csv("growth_curve.csv")
+dt = ns.get("doubling_times")
+if not isinstance(dt, dict) or not dt:
+    fail("Fill the dictionary doubling_times, e.g. doubling_times['WT'] = np.log(2) / slope.")
+for s in ["WT", "delta_recA", "delta_lon"]:
+    if s not in dt:
+        fail(f"doubling_times has no entry for {s!r}.")
+    mask = (full[s] >= 0.05) & (full[s] <= 0.5)
+    slope = np.polyfit(full["time_min"][mask], np.log(full[s][mask]), 1)[0]
+    want = np.log(2) / slope
+    got = float(dt[s])
+    if abs(got - want) < 0.2:
+        continue
+    whole = np.log(2) / np.polyfit(full["time_min"], np.log(full[s]), 1)[0]
+    if abs(got - whole) < 1:
+        fail(f"doubling_times['{s}'] is {got:.1f} min: that fits the whole curve, including the plateau. Keep only points with 0.05 <= OD <= 0.5.")
+    if abs(got - 1 / slope) < 1 or abs(got - slope) < 0.01:
+        fail(f"doubling_times['{s}'] is {got:.3f}. Convert the slope: doubling time = np.log(2) / slope.")
+    if got < 0 or got > 1000:
+        fail(f"doubling_times['{s}'] is {got:.1f}. Did you fit np.log(OD) (not the OD itself) against time, in that order: polyfit(time, log_od, 1)?")
+    fail(f"doubling_times['{s}'] is {got:.1f} min, but should be about {want:.1f}. Check the window (0.05 to 0.5, inclusive) and that you used np.log.")
+if "WT" not in out:
+    fail("Print each strain with its doubling time.")
+ok(f"WT doubles every {float(dt['WT']):.0f} min, ΔrecA is slower and Δlon faster. You've just done a real growth-curve analysis, from raw file to biological answer.")
+--- hint
+Inside `for s in strains:` make `mask = (df[s] >= 0.05) & (df[s] <= 0.5)`, then `t = df["time_min"][mask]` and `od = df[s][mask]`.
+--- hint
+`slope, intercept = np.polyfit(t, np.log(od), 1)` and `doubling_times[s] = np.log(2) / slope`.
+--- solution
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+df = pd.read_csv("growth_curve.csv")
+strains = ["WT", "delta_recA", "delta_lon"]
+
+doubling_times = {}
+for s in strains:
+    mask = (df[s] >= 0.05) & (df[s] <= 0.5)
+    t = df["time_min"][mask]
+    od = df[s][mask]
+    slope, intercept = np.polyfit(t, np.log(od), 1)
+    doubling_times[s] = np.log(2) / slope
+    print(f"{s:11} doubling time {doubling_times[s]:.1f} min  ({mask.sum()} points)")
+    plt.plot(df["time_min"], df[s], "o-", markersize=3, label=s)
+
+plt.yscale("log")
+plt.xlabel("time (min)")
+plt.ylabel("OD600")
+plt.legend()
+plt.show()

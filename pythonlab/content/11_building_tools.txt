@@ -1,0 +1,910 @@
+@chapter Building real tools
+@blurb Classes, program structure, command-line options, tests and a tiny web API: how scripts grow into tools.
+@icon wrench
+
+=== lesson classes_intro
+title: Classes: your own kind of value
+minutes: 12
+--- text
+So far your data has lived in strings, lists and dictionaries, and your actions in functions. A **class** packs both together: it describes a new *kind* of value that carries its own data (**attributes**) and its own functions (**methods**).
+
+```python
+class Sequence:
+    def __init__(self, name, seq):
+        self.name = name            # attributes: data stored on the object
+        self.seq = seq.upper()
+
+    def gc(self):                   # a method: a function that belongs to the object
+        if not self.seq:
+            return 0.0
+        return 100 * (self.seq.count("G") + self.seq.count("C")) / len(self.seq)
+```
+
+You make an object (an **instance**) by calling the class like a function. Python then runs `__init__` for you:
+
+```python
+gene = Sequence("lmnA_frag", "atgcccagcgct")
+print(gene.name)     # lmnA_frag
+print(gene.gc())     # 66.66…
+```
+
+Three things to notice:
+
+- `self` is the object itself. Every method gets it as its first parameter, and `self.seq` means "the seq that belongs to *this* object".
+- `__init__` (two underscores on each side) runs once, when the object is created. It's where you store the starting data.
+- `__repr__` is another special method: it decides what `print(obj)` shows. Without it you get something unhelpful like `<__main__.Sequence object at 0x10f3>`.
+
+> **In the lab:** think of a class as a sample label template. `Sequence` is the template; `gene` is one filled-in tube. A hundred tubes can share one template, and each knows its own name and contents.
+
+Classes are how bigger tools stay tidy: Biopython's `Seq` and `SeqRecord`, pandas' `DataFrame`, and the plate and well objects in plate-reader software are all classes.
+--- example
+class Sequence:
+    def __init__(self, name, seq):
+        self.name = name
+        self.seq = seq.upper()
+
+    def gc(self):
+        if not self.seq:
+            return 0.0
+        return 100 * (self.seq.count("G") + self.seq.count("C")) / len(self.seq)
+
+    def __repr__(self):
+        return f"Sequence({self.name}, {len(self.seq)} bp)"
+
+
+genes = [Sequence("lmnA_frag", "atgcccagcgctaccgaa"),
+         Sequence("lowgc_1", "ATGCGAGTAAGGCGTGTA")]
+for g in genes:
+    print(g, f"GC = {g.gc():.1f} %")
+--- task
+Write a class called `Primer`:
+
+1. `__init__(self, name, seq)` stores `self.name` and `self.seq`, with the sequence converted to **uppercase**.
+2. `gc(self)` returns the GC content in **percent** (return `0.0` for an empty sequence).
+3. `revcomp(self)` returns the reverse complement as a **string**.
+4. `tm(self)` returns the Wallace melting temperature: `2 × (A + T) + 4 × (G + C)`.
+5. `__repr__(self)` returns text like `Primer(LMNA_F, 20 nt)` — the name and the length.
+
+Then create `lmna_f = Primer("LMNA_F", "GCTGAGTACAACCTGCGCTC")` and print it, its GC and its Tm.
+--- starter
+class Primer:
+    def __init__(self, name, seq):
+        pass
+
+    def gc(self):
+        pass
+
+    def revcomp(self):
+        pass
+
+    def tm(self):
+        pass
+
+    def __repr__(self):
+        return "Primer(?)"
+
+
+lmna_f = Primer("LMNA_F", "GCTGAGTACAACCTGCGCTC")
+print(lmna_f)
+--- check
+P = ns.get("Primer")
+if not isinstance(P, type):
+    fail("Define a class called Primer (class Primer: …).")
+try:
+    p = P("test", "gcgcatat")
+except TypeError:
+    fail("Primer(name, seq) should take exactly two values after self: def __init__(self, name, seq).")
+if getattr(p, "name", None) != "test":
+    fail("In __init__, store the name: self.name = name.")
+if getattr(p, "seq", None) != "GCGCATAT":
+    fail("In __init__, store the sequence in uppercase: self.seq = seq.upper(). Primer('x', 'gcgcatat').seq should be 'GCGCATAT'.")
+g = p.gc()
+if not isinstance(g, (int, float)):
+    fail("gc() should return a number — check it has a return line.")
+if abs(g - 50) < 1e-6 and abs(P("x", "GGGC").gc() - 100) > 1e-6:
+    fail("gc() works for one primer but not another. Use self.seq inside the method, not a fixed sequence.")
+if abs(g - 0.5) < 1e-6:
+    fail("gc() returned 0.5 for GCGCATAT — multiply by 100 to give percent.")
+if abs(g - 50) > 1e-6 or abs(P("x", "GGGC").gc() - 100) > 1e-6 or abs(P("x", "ATAT").gc()) > 1e-6:
+    fail("gc() should return (G + C) / length × 100. For GCGCATAT that's 50.")
+try:
+    e = P("empty", "").gc()
+except ZeroDivisionError:
+    fail("gc() crashes on an empty primer. Return 0.0 when self.seq is empty, before dividing.")
+if e != 0:
+    fail("gc() of an empty sequence should be 0.0.")
+rc = p.revcomp()
+if not isinstance(rc, str):
+    fail("revcomp() should return the reverse complement as a string.")
+if rc == "CGCGTATA":
+    fail("revcomp() gave the complement but not reversed. Reverse it with [::-1].")
+if rc == "TATACGCG":
+    fail("revcomp() reversed the sequence but didn't complement it (A↔T, G↔C).")
+if rc != "ATATGCGC" or P("x", "AAGC").revcomp() != "GCTT":
+    fail("revcomp() should complement each base (A↔T, G↔C) and reverse the result. For GCGCATAT that's ATATGCGC.")
+if p.tm() != 24 or P("x", "AAAAGGGG").tm() != 24 or P("x", "GCTGAGTACAACCTGCGCTC").tm() != 64:
+    fail("tm() should be 2 × (A + T) + 4 × (G + C). For GCGCATAT: 2 × 4 + 4 × 4 = 24.")
+r = repr(P("LMNA_F", "GCTGAGTACAACCTGCGCTC"))
+if "LMNA_F" not in r or "20" not in r:
+    fail(f"__repr__ should return the name and length, like Primer(LMNA_F, 20 nt). Yours gives: {r}")
+if "18" not in repr(P("abc", "A" * 18)):
+    fail("__repr__ should use the real length: len(self.seq).")
+if "lmna_f" not in ns or not isinstance(ns["lmna_f"], P):
+    fail("Create lmna_f = Primer(\"LMNA_F\", \"GCTGAGTACAACCTGCGCTC\").")
+if "LMNA_F" not in out:
+    fail("Your class works. Now print(lmna_f), its gc() and its tm().")
+ok("Your Primer class works: one object that knows its own sequence and can answer questions about it. That's exactly how bigger tools are organised.")
+--- hint
+Inside every method, the sequence is `self.seq`. For example `def tm(self):` can start with `a = self.seq.count("A")`.
+--- hint
+For `revcomp`, build a dictionary `{"A": "T", "T": "A", "G": "C", "C": "G"}`, complement base by base, then reverse with `[::-1]`.
+--- hint
+`__repr__` must **return** a string, e.g. `return f"Primer({self.name}, {len(self.seq)} nt)"`.
+--- solution
+class Primer:
+    def __init__(self, name, seq):
+        self.name = name
+        self.seq = seq.upper()
+
+    def gc(self):
+        if not self.seq:
+            return 0.0
+        return 100 * (self.seq.count("G") + self.seq.count("C")) / len(self.seq)
+
+    def revcomp(self):
+        pairs = {"A": "T", "T": "A", "G": "C", "C": "G"}
+        return "".join(pairs.get(b, "N") for b in self.seq)[::-1]
+
+    def tm(self):
+        at = self.seq.count("A") + self.seq.count("T")
+        gc = self.seq.count("G") + self.seq.count("C")
+        return 2 * at + 4 * gc
+
+    def __repr__(self):
+        return f"Primer({self.name}, {len(self.seq)} nt)"
+
+
+lmna_f = Primer("LMNA_F", "GCTGAGTACAACCTGCGCTC")
+print(lmna_f)
+print(f"GC = {lmna_f.gc():.1f} %, Tm = {lmna_f.tm()} °C")
+print("Reverse complement:", lmna_f.revcomp())
+--- explain
+- `__init__` stores the two attributes. Uppercasing once, here, means every method can trust `self.seq`.
+- Each method reads `self.seq`, so the same code works for any primer you create.
+- `pairs.get(b, "N")` turns any unexpected letter into `N` instead of crashing.
+- `__repr__` returns (not prints) a short label; `print(lmna_f)` uses it automatically.
+
+=== lesson program_structure
+title: Structuring a program: main() and your own modules
+minutes: 12
+--- text
+A 20-line script can run top to bottom. A 300-line tool needs structure. Real tools follow the same recipe:
+
+1. **Small functions** that each do one job (read a file, compute GC, format a line).
+2. A **`main()` function** that tells the story: read → analyse → report.
+3. One line at the bottom that starts it:
+
+```python
+def main():
+    records = read_fasta("sequences.fasta")
+    for name, seq in records.items():
+        print(name, gc_content(seq))
+
+if __name__ == "__main__":
+    main()
+```
+
+What is `__name__`? Python sets it to `"__main__"` when a file is **run** directly, and to the module's name when the file is **imported**. So `main()` runs when you run the tool, but not when another program imports it just to borrow its functions.
+
+**Modules.** A module is simply a `.py` file. If you save your best functions in `seqtools.py`, any program in the same folder can do `import seqtools` and call `seqtools.gc_content(...)`. That's how you stop copy-pasting the same reverse-complement function into every script.
+
+Here, the editor has no "Save as" button, but your code can write a file into the workspace folder, and the workspace is on Python's search path:
+
+```python
+code = '''
+def double(x):
+    return 2 * x
+'''
+with open("mytools.py", "w") as f:
+    f.write(code)
+
+import mytools
+print(mytools.double(21))   # 42
+```
+
+> **In the lab:** this is the difference between a protocol written on a scrap of paper and a lab SOP: named steps, one clear order, and reusable parts that other protocols can reference.
+--- example
+code = '''
+def dilution_volume(stock, final, volume):
+    """Volume of stock needed: C1·V1 = C2·V2."""
+    return final * volume / stock
+'''
+with open("labmath.py", "w") as f:
+    f.write(code)
+
+import labmath
+
+
+def main():
+    for stock in (10, 50, 100):
+        v = labmath.dilution_volume(stock, 0.5, 20)
+        print(f"From a {stock} mM stock: take {v:.2f} mL")
+
+
+if __name__ == "__main__":
+    main()
+--- task
+1. Write a module file called **`seqtools.py`** into the workspace (with `open(...)` and `.write(...)`). It must contain two functions: `gc_content(seq)`, the GC percent of an uppercase sequence (`0.0` for an empty one), and `revcomp(seq)`, the reverse complement.
+2. `import seqtools`.
+3. Write a `main()` function that reads **sequences.fasta** (the `read_fasta` helper is in the starter) and prints each sequence's name and GC content using `seqtools.gc_content`.
+4. Finish with `if __name__ == "__main__":` and call `main()`.
+--- starter
+module_code = '''
+def gc_content(seq):
+    pass
+
+
+def revcomp(seq):
+    pass
+'''
+
+# 1. write module_code to seqtools.py here
+
+
+def read_fasta(path):
+    records, name = {}, None
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith(">"):
+                name = line[1:].split()[0]
+                records[name] = ""
+            elif name:
+                records[name] += line.upper()
+    return records
+
+
+def main():
+    pass
+
+
+# 4. start main() only when the file is run
+--- check
+import os, sys, importlib
+if not os.path.exists("seqtools.py"):
+    fail("There is no seqtools.py in the workspace yet. Use with open(\"seqtools.py\", \"w\") as f: f.write(module_code)")
+importlib.invalidate_caches()
+sys.modules.pop("seqtools", None)
+try:
+    st = importlib.import_module("seqtools")
+except SyntaxError as e:
+    fail(f"seqtools.py has a syntax error (line {e.lineno}). Check the indentation of the code inside the ''' quotes.")
+for fn in ("gc_content", "revcomp"):
+    if not callable(getattr(st, fn, None)):
+        fail(f"seqtools.py should define a function called {fn}.")
+g = st.gc_content("GGCCAT")
+if not isinstance(g, (int, float)):
+    fail("seqtools.gc_content should return a number — is there still a pass instead of a return?")
+if abs(g - 100 * 4 / 6) > 1e-6 or abs(st.gc_content("ATAT")) > 1e-6:
+    fail("seqtools.gc_content should return the GC percent: (G + C) / length × 100.")
+try:
+    e = st.gc_content("")
+except ZeroDivisionError:
+    fail("seqtools.gc_content crashes on an empty sequence. Return 0.0 when seq is empty.")
+if e != 0:
+    fail("gc_content(\"\") should be 0.0.")
+if st.revcomp("AAGC") != "GCTT" or st.revcomp("ATGCC") != "GGCAT":
+    fail("seqtools.revcomp should complement (A↔T, G↔C) and reverse. revcomp(\"AAGC\") is \"GCTT\".")
+if "seqtools" not in ns:
+    fail("Import your module with import seqtools.")
+if not callable(ns.get("main")):
+    fail("Define a function called main().")
+for name in ("lmnA_frag", "gfp_like", "ampR", "hisT", "lowgc_1"):
+    if name not in out:
+        fail(f"{name} is missing from the output. main() should loop over every record and print its name and GC — and make sure main() is actually called at the bottom.")
+ok("Your own module, imported and used by a main() function. This is the skeleton of every tool in your Offline Tools folder.")
+--- hint
+Writing the file: `with open("seqtools.py", "w") as f:` and on the next (indented) line `f.write(module_code)`.
+--- hint
+Inside the `'''` string, write normal Python functions (the code is a module, not a string to run here). `gc_content` needs an `if not seq: return 0.0` before dividing.
+--- hint
+`main()` can be: `records = read_fasta("sequences.fasta")`, then `for name, seq in records.items(): print(name, round(seqtools.gc_content(seq), 1))`.
+--- solution
+module_code = '''
+def gc_content(seq):
+    if not seq:
+        return 0.0
+    return 100 * (seq.count("G") + seq.count("C")) / len(seq)
+
+
+def revcomp(seq):
+    pairs = {"A": "T", "T": "A", "G": "C", "C": "G"}
+    return "".join(pairs.get(b, "N") for b in seq)[::-1]
+'''
+
+with open("seqtools.py", "w") as f:
+    f.write(module_code)
+
+import seqtools
+
+
+def read_fasta(path):
+    records, name = {}, None
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith(">"):
+                name = line[1:].split()[0]
+                records[name] = ""
+            elif name:
+                records[name] += line.upper()
+    return records
+
+
+def main():
+    records = read_fasta("sequences.fasta")
+    for name, seq in records.items():
+        print(f"{name:<10} {seqtools.gc_content(seq):5.1f} % GC")
+
+
+if __name__ == "__main__":
+    main()
+--- explain
+- `seqtools.py` now sits in your workspace like any other file. Look for it in the Playground's Files list.
+- `import seqtools` finds it because the workspace folder is on Python's search path. On your Mac the same works for any `.py` file in the same folder as your script.
+- `main()` reads like a summary of the tool. The helper functions hold the details.
+- The `if __name__ == "__main__":` guard means another program could `import` this file for `read_fasta` without printing the report.
+
+=== lesson argparse_cli
+title: Command-line tools with argparse
+minutes: 12
+--- text
+Tools you run in **Terminal** take options, like this:
+
+```python
+# In Terminal (not here):
+#   python gc_tool.py sequences.fasta --min-gc 50
+```
+
+The standard-library module **`argparse`** turns those words into a tidy object, and writes a `--help` page for free:
+
+```python
+import argparse
+
+parser = argparse.ArgumentParser(description="Report GC-rich sequences.")
+parser.add_argument("fasta", help="FASTA file to read")                  # positional: required
+parser.add_argument("--min-gc", type=float, default=0, help="minimum GC %")  # optional, with default
+
+args = parser.parse_args()          # in Terminal: reads the words you typed
+print(args.fasta, args.min_gc)      # note: --min-gc becomes args.min_gc
+```
+
+| You write | What it means |
+|---|---|
+| `add_argument("fasta")` | a required value, by position |
+| `add_argument("--min-gc", type=float, default=0)` | optional; converted to float; 0 when left out |
+| `add_argument("--plot", action="store_true")` | an on/off switch: `True` if given |
+
+This app has no Terminal, so we hand `parse_args` the words as a **list** instead. It's exactly what Python does with what you type:
+
+```python
+args = parser.parse_args(["sequences.fasta", "--min-gc", "50"])
+```
+
+> **In the lab:** a tool with options is a tool you can reuse. Today GC ≥ 50 %, tomorrow ≥ 60 % on a different FASTA — no code edits, just different words in Terminal.
+--- example
+import argparse
+
+parser = argparse.ArgumentParser(description="Dilution helper")
+parser.add_argument("stock", type=float, help="stock concentration (mM)")
+parser.add_argument("--final", type=float, default=1.0, help="final concentration (mM)")
+parser.add_argument("--volume", type=float, default=10.0, help="final volume (mL)")
+
+args = parser.parse_args(["100", "--final", "0.5"])
+print(args)
+v1 = args.final * args.volume / args.stock
+print(f"Take {v1 * 1000:.0f} µL of stock and make up to {args.volume} mL")
+print()
+parser.print_help()
+--- task
+1. Write `make_parser()` that **returns** an `ArgumentParser` with a positional argument `fasta` and an option `--min-gc` with `type=float` and `default=0`.
+2. Create `args = make_parser().parse_args(["sequences.fasta", "--min-gc", "50"])`.
+3. Write `run(args)` that reads `args.fasta` with the `read_fasta` helper and prints the name and GC of **every sequence whose GC is at least `args.min_gc`**.
+4. Call `run(args)`.
+--- starter
+import argparse
+
+
+def read_fasta(path):
+    records, name = {}, None
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith(">"):
+                name = line[1:].split()[0]
+                records[name] = ""
+            elif name:
+                records[name] += line.upper()
+    return records
+
+
+def gc_content(seq):
+    return 100 * (seq.count("G") + seq.count("C")) / len(seq) if seq else 0.0
+
+
+def make_parser():
+    parser = argparse.ArgumentParser(description="Report GC-rich sequences.")
+    # add the two arguments here
+    return parser
+
+
+def run(args):
+    pass
+
+--- check
+import argparse
+mp = ns.get("make_parser")
+if not callable(mp):
+    fail("Define a function called make_parser().")
+p = mp()
+if not isinstance(p, argparse.ArgumentParser):
+    fail("make_parser() should return the ArgumentParser (return parser).")
+try:
+    a = p.parse_args(["x.fa", "--min-gc", "42.5"])
+except SystemExit:
+    fail("parse_args([\"x.fa\", \"--min-gc\", \"42.5\"]) failed. Add a positional argument \"fasta\" and an option \"--min-gc\".")
+if getattr(a, "fasta", None) != "x.fa":
+    fail("Add the positional argument with parser.add_argument(\"fasta\").")
+if not hasattr(a, "min_gc"):
+    fail("Add the option with parser.add_argument(\"--min-gc\", …). Python stores it as args.min_gc.")
+if a.min_gc == "42.5":
+    fail("args.min_gc is text. Add type=float so argparse converts it to a number.")
+if a.min_gc != 42.5:
+    fail("--min-gc 42.5 should give args.min_gc == 42.5.")
+try:
+    d = p.parse_args(["x.fa"])
+except SystemExit:
+    fail("--min-gc should be optional. Give it a default: default=0.")
+if d.min_gc != 0:
+    fail("When --min-gc is left out, args.min_gc should default to 0.")
+args = ns.get("args")
+if args is None or getattr(args, "min_gc", None) != 50 or getattr(args, "fasta", None) != "sequences.fasta":
+    fail("Create args = make_parser().parse_args([\"sequences.fasta\", \"--min-gc\", \"50\"]).")
+recs = ns["read_fasta"]("sequences.fasta")
+gc = ns["gc_content"]
+keep = [n for n, s in recs.items() if gc(s) >= 50]
+drop = [n for n, s in recs.items() if gc(s) < 50]
+for n in keep:
+    if n not in out:
+        fail(f"{n} has GC ≥ 50 % and should be printed. Did you call run(args)?")
+for n in drop:
+    if n in out:
+        fail(f"{n} has GC below 50 % and should be left out. Compare gc_content(seq) with args.min_gc.")
+ok(f"{len(keep)} sequences pass --min-gc 50. Save this as gc_tool.py on your Mac and it runs in Terminal with any FASTA and any threshold.")
+--- hint
+`parser.add_argument("fasta")` and `parser.add_argument("--min-gc", type=float, default=0)` go before `return parser`.
+--- hint
+In `run(args)`: `for name, seq in read_fasta(args.fasta).items():` then `if gc_content(seq) >= args.min_gc:` print it.
+--- solution
+import argparse
+
+
+def read_fasta(path):
+    records, name = {}, None
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith(">"):
+                name = line[1:].split()[0]
+                records[name] = ""
+            elif name:
+                records[name] += line.upper()
+    return records
+
+
+def gc_content(seq):
+    return 100 * (seq.count("G") + seq.count("C")) / len(seq) if seq else 0.0
+
+
+def make_parser():
+    parser = argparse.ArgumentParser(description="Report GC-rich sequences.")
+    parser.add_argument("fasta", help="FASTA file to read")
+    parser.add_argument("--min-gc", type=float, default=0, help="minimum GC percent")
+    return parser
+
+
+def run(args):
+    for name, seq in read_fasta(args.fasta).items():
+        g = gc_content(seq)
+        if g >= args.min_gc:
+            print(f"{name:<10} {g:.1f} %")
+
+
+args = make_parser().parse_args(["sequences.fasta", "--min-gc", "50"])
+run(args)
+--- explain
+- `make_parser()` keeps the command-line definition in one place, which makes it easy to test (the check called it with different word lists).
+- On your Mac, the last two lines become `args = make_parser().parse_args()` with **no list**, so argparse reads what you typed after `python gc_tool.py`.
+- Save the file, open Terminal in that folder, and run `python3 gc_tool.py sequences.fasta --min-gc 50`, or `python3 gc_tool.py --help` to see the help page argparse wrote for you.
+
+=== lesson unit_tests
+title: Testing your code
+minutes: 14
+--- text
+How do you know your GC function is right — not just for the sequence you tried, but for an empty one, a lowercase one, one with `N`s? You write **tests**: tiny functions that call your code with known inputs and check the answer with **`assert`**.
+
+```python
+def test_simple():
+    assert gc_content("GGCC") == 100.0
+    assert gc_content("ATAT") == 0.0
+```
+
+`assert condition` does nothing when the condition is true, and raises an `AssertionError` when it's false. Add a message to say what went wrong: `assert x == 50, f"expected 50, got {x}"`.
+
+Good tests cover the **edge cases**, where bugs hide:
+
+| Case | Why it matters |
+|---|---|
+| empty sequence `""` | dividing by a length of 0 crashes |
+| lowercase `"gcat"` | FASTA files from some databases are lowercase |
+| `N` bases | sequencing gaps should not count as A/T |
+| exact values | 0.5 vs 50 % is a classic slip |
+
+For floats, compare with a tolerance: `assert abs(result - 66.667) < 0.01`.
+
+Professional tools use **pytest**, which finds every function whose name starts with `test_` and runs it. The habit is the same: name tests `test_…`, keep them small, and run them after every change.
+
+> **In the lab:** tests are your positive and negative controls. You don't trust a Western blot without a loading control; don't trust a function without a test that would have caught it being wrong.
+--- example
+def mean_od(values):
+    if not values:
+        return 0.0
+    return sum(values) / len(values)
+
+
+def test_mean_basic():
+    assert abs(mean_od([0.2, 0.4]) - 0.3) < 1e-9
+
+
+def test_mean_empty():
+    assert mean_od([]) == 0.0
+
+
+for test in (test_mean_basic, test_mean_empty):
+    test()
+    print("passed:", test.__name__)
+--- task
+The starter contains a correct `gc_content(seq)`: it ignores case, leaves `N` bases out of the count **and** the length, and returns `0.0` when there's nothing to count.
+
+Write these four tests, each with at least one `assert`:
+
+1. `test_basic()` — known answers, e.g. `"GGCC"` → 100, `"ATGC"` → 50.
+2. `test_empty()` — an empty sequence gives `0.0` (without crashing).
+3. `test_lowercase()` — `"ggcc"` gives the same as `"GGCC"`.
+4. `test_n_bases()` — `"GCNN"` gives 100 (Ns are ignored).
+
+Then call all four and print `all tests passed`. The check will also swap in **broken** versions of `gc_content` and make sure your tests catch them.
+--- starter
+def gc_content(seq):
+    seq = seq.upper()
+    counted = len(seq) - seq.count("N")
+    if counted == 0:
+        return 0.0
+    return 100 * (seq.count("G") + seq.count("C")) / counted
+
+
+def test_basic():
+    pass
+
+
+def test_empty():
+    pass
+
+
+def test_lowercase():
+    pass
+
+
+def test_n_bases():
+    pass
+
+
+# call the four tests here, then print("all tests passed")
+--- check
+names = ["test_basic", "test_empty", "test_lowercase", "test_n_bases"]
+for n in names:
+    if not callable(ns.get(n)):
+        fail(f"Define a test function called {n}().")
+good = ns.get("gc_content")
+if not callable(good):
+    fail("Keep the gc_content function from the starter — your tests need it.")
+
+
+def g_correct(seq):
+    seq = seq.upper()
+    counted = len(seq) - seq.count("N")
+    if counted == 0:
+        return 0.0
+    return 100 * (seq.count("G") + seq.count("C")) / counted
+
+
+def g_case(seq):
+    counted = len(seq) - seq.count("N")
+    if counted == 0:
+        return 0.0
+    return 100 * (seq.count("G") + seq.count("C")) / counted
+
+
+def g_empty(seq):
+    seq = seq.upper()
+    return 100 * (seq.count("G") + seq.count("C")) / (len(seq) - seq.count("N"))
+
+
+def g_n(seq):
+    seq = seq.upper()
+    if not seq:
+        return 0.0
+    return 100 * (seq.count("G") + seq.count("C")) / len(seq)
+
+
+def g_frac(seq):
+    seq = seq.upper()
+    counted = len(seq) - seq.count("N")
+    if counted == 0:
+        return 0.0
+    return (seq.count("G") + seq.count("C")) / counted
+
+
+def g_only_g(seq):
+    seq = seq.upper()
+    counted = len(seq) - seq.count("N")
+    if counted == 0:
+        return 0.0
+    return 100 * (2 * seq.count("G")) / counted
+
+
+def run_all(impl):
+    ns["gc_content"] = impl
+    failed = []
+    for n in names:
+        try:
+            ns[n]()
+        except Exception:
+            failed.append(n)
+    return failed
+
+
+try:
+    bad = run_all(g_correct)
+    if bad:
+        fail(f"{bad[0]} fails even with the correct gc_content. Check the expected values in its asserts.")
+    for impl, what in [(g_case, "ignores lowercase letters"),
+                       (g_empty, "crashes on an empty sequence"),
+                       (g_n, "counts N bases in the length"),
+                       (g_frac, "returns a fraction (0.5) instead of a percent (50)"),
+                       (g_only_g, "counts only G (twice) and forgets C")]:
+        if not run_all(impl):
+            fail(f"A broken gc_content that {what} passed all your tests. Add an assert that would catch it.")
+finally:
+    ns["gc_content"] = good
+if "all tests passed" not in out.lower():
+    fail("Your tests are good. Now call all four and print \"all tests passed\".")
+ok("Your tests caught every planted bug. That's the safety net that lets you change a tool later without fear.")
+--- hint
+A test is just a function with asserts, e.g. `def test_empty():` and inside `assert gc_content("") == 0.0`.
+--- hint
+To catch a version that only counts G, include a sequence where G and C differ, e.g. `assert gc_content("ATGC") == 50`.
+--- hint
+After the four `def`s, call them: `test_basic()`, `test_empty()`, … and then `print("all tests passed")`. If an assert fails, Python stops with an AssertionError before the print.
+--- solution
+def gc_content(seq):
+    seq = seq.upper()
+    counted = len(seq) - seq.count("N")
+    if counted == 0:
+        return 0.0
+    return 100 * (seq.count("G") + seq.count("C")) / counted
+
+
+def test_basic():
+    assert gc_content("GGCC") == 100
+    assert gc_content("ATAT") == 0
+    assert gc_content("ATGC") == 50
+    assert abs(gc_content("GGA") - 66.667) < 0.01
+
+
+def test_empty():
+    assert gc_content("") == 0.0
+
+
+def test_lowercase():
+    assert gc_content("ggcc") == gc_content("GGCC") == 100
+    assert gc_content("atGc") == 50
+
+
+def test_n_bases():
+    assert gc_content("GCNN") == 100
+    assert gc_content("NNNN") == 0.0
+
+
+test_basic()
+test_empty()
+test_lowercase()
+test_n_bases()
+print("all tests passed")
+--- explain
+- `test_basic` checks exact percentages, which catches the fraction-instead-of-percent bug, and `"ATGC"` catches a version that confuses G and C.
+- `test_empty` simply calls the function with `""`: if the code divides by zero, the test crashes, and a crash counts as a failure.
+- `test_n_bases` with `"GCNN"` only gives 100 if the Ns are left out of the length.
+- On your Mac, save the tests in `test_seqtools.py` and run `python3 -m pytest` in Terminal (after `pip install pytest`). pytest finds every `test_` function by itself.
+
+=== lesson local_web_tool
+title: How a local web tool works
+minutes: 15
+--- text
+The tools in your **Offline Tools** folder look like websites, but nothing leaves your Mac. They all use the same three-part design:
+
+| Part | Language | Job |
+|---|---|---|
+| Web page | HTML + JavaScript | buttons, tables, plots — what you see |
+| JSON API | text messages | the page asks: `/api/gc?seq=ATGC` |
+| Server | **Python** | reads files, computes, answers with JSON |
+
+When you click a button, the page sends a request to an address like `http://localhost:8775/api/gc?seq=ATGC`. `localhost` means *this computer*. The Python server looks at the **path** (`/api/gc`) and the **parameters** (`seq=ATGC`), runs the right function, and sends back **JSON**, the dictionary-like text you met with the `json` module:
+
+```python
+{"length": 4, "gc": 50.0}
+```
+
+The heart of the server is a **router**: a function that takes the path and parameters and decides what to do. It's ordinary Python, no web knowledge needed:
+
+```python
+def handle(path, params):
+    if path == "/api/length":
+        return {"length": len(params.get("seq", ""))}
+    return {"error": f"unknown path {path}"}
+```
+
+Here is a complete, minimal server with the standard library's `http.server`. **Don't run it here** (it waits forever for visitors); on your Mac, save it as `server.py` and run `python3 server.py` in Terminal, then open `http://localhost:8000/api/gc?seq=ATGC` in your browser:
+
+```python
+import json
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.parse import urlparse, parse_qs
+
+class Handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        url = urlparse(self.path)
+        params = {k: v[0] for k, v in parse_qs(url.query).items()}
+        body = json.dumps(handle(url.path, params)).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(body)
+
+HTTPServer(("127.0.0.1", 8000), Handler).serve_forever()
+```
+
+Press **Ctrl+C** in Terminal to stop it. Notice that `Handler` is a **class** and `handle` is the router you're about to write: everything from this chapter comes together.
+
+> **In the lab:** this is how a plate-reader viewer, a microscopy browser or a proteomics dashboard can run fully offline: Python does the science, the browser does the display.
+--- example
+import json
+from urllib.parse import urlparse, parse_qs
+
+# What the server receives when the page asks for a calculation:
+url = urlparse("/api/dilution?stock=50&final=0.05&volume=100")
+params = {k: v[0] for k, v in parse_qs(url.query).items()}
+print("path:  ", url.path)
+print("params:", params)
+
+v1 = float(params["final"]) * float(params["volume"]) / float(params["stock"])
+reply = {"v1_ml": v1, "buffer_ml": float(params["volume"]) - v1}
+print("reply: ", json.dumps(reply))
+--- task
+Write the router `handle(path, params)`. `params` is a dictionary of text values. It must **return a dictionary**:
+
+1. `"/api/gc"` → `{"length": …, "gc": …}` for `params["seq"]` (uppercase it first; `gc` in percent, rounded to 1 decimal; `0.0` for an empty sequence).
+2. `"/api/revcomp"` → `{"revcomp": …}` with the reverse complement of `params["seq"]` (uppercased).
+3. Any other path → `{"error": "unknown path …"}` (include the path in the message).
+4. If `"seq"` is missing from `params` on a known path → a dictionary with an `"error"` key too.
+
+Then print `json.dumps(handle("/api/gc", {"seq": "ATGCGC"}))` — that's exactly the text the server would send to the page.
+--- starter
+import json
+
+
+def handle(path, params):
+    return {}
+
+
+print(json.dumps(handle("/api/gc", {"seq": "ATGCGC"})))
+--- check
+import json
+h = ns.get("handle")
+if not callable(h):
+    fail("Define a function called handle(path, params).")
+r = h("/api/gc", {"seq": "ATGCGC"})
+if not isinstance(r, dict):
+    fail("handle() should return a dictionary (the server turns it into JSON).")
+if "error" in r:
+    fail(f"/api/gc with a sequence returned an error: {r}. Compare the path with == \"/api/gc\".")
+if r.get("length") != 6:
+    fail(f"For seq ATGCGC, \"length\" should be 6. You returned {r}.")
+if not isinstance(r.get("gc"), (int, float)) or abs(r["gc"] - 66.7) > 0.051:
+    fail(f"For seq ATGCGC, \"gc\" should be 66.7 (percent, rounded to 1 decimal). You returned {r}.")
+r2 = h("/api/gc", {"seq": "ggcc"})
+if not isinstance(r2, dict) or abs(r2.get("gc", -1) - 100) > 1e-6:
+    fail("/api/gc should uppercase the sequence first: \"ggcc\" is 100 % GC.")
+try:
+    r3 = h("/api/gc", {"seq": ""})
+except ZeroDivisionError:
+    fail("/api/gc crashes on an empty sequence. Return gc 0.0 when it's empty — a crash would break the whole server.")
+if not isinstance(r3, dict) or r3.get("gc") != 0 or r3.get("length") != 0:
+    fail("/api/gc with an empty sequence should return length 0 and gc 0.0.")
+rc = h("/api/revcomp", {"seq": "aagc"})
+if not isinstance(rc, dict) or rc.get("revcomp") != "GCTT":
+    fail(f"/api/revcomp with seq aagc should return {{\"revcomp\": \"GCTT\"}}. You returned {rc}.")
+u = h("/api/nothing", {"seq": "ATGC"})
+if not isinstance(u, dict) or "error" not in u:
+    fail("An unknown path should return a dictionary with an \"error\" key.")
+if "/api/nothing" not in str(u["error"]):
+    fail("Put the path in the error message, e.g. f\"unknown path {path}\" — it makes debugging much easier.")
+try:
+    m = h("/api/gc", {})
+except KeyError:
+    fail("/api/gc without a \"seq\" parameter crashes with KeyError. Check \"seq\" in params first and return an error dictionary.")
+if not isinstance(m, dict) or "error" not in m:
+    fail("When \"seq\" is missing, return a dictionary with an \"error\" key.")
+try:
+    m2 = h("/api/revcomp", {})
+except KeyError:
+    fail("/api/revcomp without a \"seq\" parameter crashes with KeyError. Return an error dictionary instead.")
+if not isinstance(m2, dict) or "error" not in m2:
+    fail("/api/revcomp with no \"seq\" should also return an error dictionary.")
+for x in (r, rc, u, m):
+    try:
+        json.dumps(x)
+    except TypeError:
+        fail("One of your replies can't be turned into JSON. Use plain numbers, text, lists and dictionaries.")
+if '"gc"' not in out or "66.7" not in out:
+    fail("handle() works. Now print(json.dumps(handle(\"/api/gc\", {\"seq\": \"ATGCGC\"}))).")
+ok("That's a working API router — the same pattern behind every Offline Tool. Add the http.server wrapper on your Mac and a web page can call it.")
+--- hint
+Start with `if path == "/api/gc":` … `elif path == "/api/revcomp":` … `else: return {"error": f"unknown path {path}"}`.
+--- hint
+At the top of the function: `if path in ("/api/gc", "/api/revcomp") and "seq" not in params: return {"error": "missing seq"}`. Then `seq = params["seq"].upper()` is safe.
+--- hint
+For the GC branch: `gc = 100 * (seq.count("G") + seq.count("C")) / len(seq) if seq else 0.0` and `return {"length": len(seq), "gc": round(gc, 1)}`.
+--- solution
+import json
+
+
+def gc_content(seq):
+    if not seq:
+        return 0.0
+    return 100 * (seq.count("G") + seq.count("C")) / len(seq)
+
+
+def revcomp(seq):
+    pairs = {"A": "T", "T": "A", "G": "C", "C": "G"}
+    return "".join(pairs.get(b, "N") for b in seq)[::-1]
+
+
+def handle(path, params):
+    if path not in ("/api/gc", "/api/revcomp"):
+        return {"error": f"unknown path {path}"}
+    if "seq" not in params:
+        return {"error": f"{path} needs a seq parameter"}
+    seq = params["seq"].upper()
+    if path == "/api/gc":
+        return {"length": len(seq), "gc": round(gc_content(seq), 1)}
+    return {"revcomp": revcomp(seq)}
+
+
+print(json.dumps(handle("/api/gc", {"seq": "ATGCGC"})))
+print(json.dumps(handle("/api/revcomp", {"seq": "aagc"})))
+print(json.dumps(handle("/api/oops", {})))
+--- explain
+- The router checks the path first, then the parameters, then does the work. Bad requests get a clear error reply instead of crashing the server.
+- The science lives in small functions (`gc_content`, `revcomp`) that you could test separately or import from your own module.
+- To make it a real tool on your Mac: add the `Handler` class and `HTTPServer(...)` line from the lesson text, run `python3 server.py`, and visit `http://localhost:8000/api/gc?seq=ATGCGC`. A web page would `fetch()` that same address and draw the answer.

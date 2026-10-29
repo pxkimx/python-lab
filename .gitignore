@@ -1,0 +1,7 @@
+# built app (rebuild with macos/build_app.sh; the Mac download is on paul-h-kim.com)
+*.app/
+*.zip
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store

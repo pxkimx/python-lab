@@ -1,0 +1,13 @@
+# OD600 readings typed in by hand during a long day
+0.512
+0.498
+n/a
+0.530
+ 0.507 
+
+0,521
+0.515
+error
+0.509
+1.2e-1
+0.488

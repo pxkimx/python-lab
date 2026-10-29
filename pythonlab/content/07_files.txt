@@ -1,0 +1,616 @@
+@chapter Files and data
+@blurb Read primer lists, FASTA files and plate-reader exports, write your results, and process a whole folder of runs.
+@icon file
+
+=== lesson file_read
+title: Reading a text file
+minutes: 9
+--- text
+So far your data has been typed into the code. Real data lives in **files**. Your workspace already has some; `primers.txt` looks like this (columns separated by a **tab**):
+
+```text
+# name	sequence (5'->3')
+LMNA_F	GCTGAGTACAACCTGCGCTC
+LMNA_R	CTTGCGGTAGGCAGCGATCT
+```
+
+Open a file with `with open(...) as f:` and loop over it **line by line**:
+
+```python
+with open("primers.txt") as f:
+    for line in f:
+        print(line)
+```
+
+The `with` block closes the file for you when it ends, even if something goes wrong.
+
+Each `line` is a string that still ends with an invisible **newline** character (`"\n"`). Clean it up and split it into columns:
+
+| Step | Code | Result |
+|---|---|---|
+| remove the newline and edge spaces | `line.strip()` | `"LMNA_F\tGCTG…"` |
+| split on the tab | `.split("\t")` | `["LMNA_F", "GCTG…"]` |
+| unpack | `name, seq = parts` | two variables |
+
+`"\t"` is how you write a tab inside a string.
+
+Most lab files have **comment lines** or **blank lines** you need to skip. `continue` jumps straight to the next line:
+
+```python
+if line.startswith("#") or line == "":
+    continue
+```
+
+> **In the lab:** tab-separated text is what you get from "Save as → Text (tab delimited)" in Excel, and it's what many instruments and databases export.
+--- example
+with open("primers.txt") as f:
+    for line in f:
+        line = line.strip()
+        print(repr(line))     # repr shows the tab as \t
+--- task
+Read `primers.txt` into a dictionary.
+
+1. Create a dictionary `primers` mapping each primer **name → sequence**.
+2. Skip the comment line (it starts with `#`) and any blank lines.
+3. Strip each line and split it on the tab.
+4. Print how many primers you read, then each name with its length in nt.
+--- starter
+primers = {}
+
+with open("primers.txt") as f:
+    for line in f:
+        # clean the line, skip comments, split on the tab
+        pass
+
+--- check
+truth = {}
+with open("primers.txt") as fh:
+    for raw in fh:
+        raw = raw.strip()
+        if not raw or raw.startswith("#"):
+            continue
+        a, b = raw.split("\t")
+        truth[a] = b
+p = ns.get("primers")
+if not isinstance(p, dict) or not p:
+    fail("primers is still empty. Inside the loop, add each primer with primers[name] = seq.")
+if any(k.startswith("#") for k in p):
+    fail("The comment line ended up in primers. Skip lines that start with \"#\" using continue.")
+if any(str(v).endswith("\n") or str(v) != str(v).strip() for v in p.values()):
+    fail("Some sequences still end with a newline. Use line.strip() before splitting.")
+if any("\t" in str(k) for k in p):
+    fail("The names still contain a tab. Split with line.split(\"\\t\") and unpack:  name, seq = ...")
+missing = [k for k in truth if k not in p]
+if missing:
+    fail(f"These primers are missing: {missing}.")
+for k, v in truth.items():
+    if p[k] != v:
+        fail(f"primers['{k}'] should be {v!r}, but it is {p[k]!r}.")
+if len(p) != len(truth):
+    fail(f"primers has {len(p)} entries, but the file has {len(truth)} primers.")
+if str(len(truth)) not in out:
+    fail(f"Print how many primers you read ({len(truth)}).")
+if not all(k in out for k in truth):
+    fail("Print each primer name with its length.")
+ok(f"{len(truth)} primers read. You can already spot short_one (8 nt) and bad_polyA: next stop, a primer checker.")
+--- hint
+Inside the loop: `line = line.strip()`, then `if line.startswith("#") or line == "":` with an indented `continue`.
+--- hint
+After skipping: `name, seq = line.split("\t")` and `primers[name] = seq`. Print after the `with` block: `for name, seq in primers.items():`.
+--- solution
+primers = {}
+
+with open("primers.txt") as f:
+    for line in f:
+        line = line.strip()
+        if line.startswith("#") or line == "":
+            continue
+        name, seq = line.split("\t")
+        primers[name] = seq
+
+print(len(primers), "primers")
+for name, seq in primers.items():
+    print(f"{name}: {len(seq)} nt")
+
+=== lesson fasta_to_dict
+title: Parsing FASTA into a dictionary
+minutes: 11
+--- text
+**FASTA** is the most common sequence format. Each record has a **header** line starting with `>`, followed by the sequence, usually **wrapped** over several lines of 60 characters:
+
+```text
+>lmnA_frag Lamin A fragment (synthetic)
+ATGCCCAGCGCTACCGAACCTACACTTAAGCGGACCACGCGGTATAGAATGGCGTTAGAT
+CGATTGAATTCCCAGAGCACTCCATACAGTGATGCGCCTGACACAACAATCGGCCGGCCA
+>gfp_like GFP-like reporter (synthetic)
+ATGCTCACTCTC...
+```
+
+The header's **first word** is the ID (`lmnA_frag`); the rest is a free-text description.
+
+The trick: remember **which record you're in**. When you see a header, start a new entry; for every other line, **add it to** the current entry.
+
+```python
+name = None
+for line in f:
+    line = line.strip()
+    if line.startswith(">"):
+        name = line[1:].split()[0]    # drop ">" and keep the first word
+        seqs[name] = ""
+    elif line:
+        seqs[name] = seqs[name] + line
+```
+
+- `line[1:]` removes the `>`.
+- `.split()` with no argument splits on any whitespace, so `[0]` is the first word.
+- `elif line:` skips blank lines (an empty string counts as false).
+
+> **In the lab:** this little loop is the heart of every FASTA reader. Libraries like Biopython do the same thing with more error checking.
+--- example
+with open("sequences.fasta") as f:
+    for line in f:
+        line = line.strip()
+        if line.startswith(">"):
+            print("HEADER:", line)
+            print("   id:", line[1:].split()[0])
+--- task
+Read `sequences.fasta` into a dictionary.
+
+1. Make `seqs` map each record's ID (first word of the header, without `>`) **→** its full sequence as **one** string (wrapped lines joined, no newlines).
+2. Print each ID with its length in bp.
+--- starter
+seqs = {}
+name = None
+
+with open("sequences.fasta") as f:
+    for line in f:
+        line = line.strip()
+        # header line? start a new record. Otherwise add the line to the current one.
+
+--- check
+truth = {}
+cur = None
+with open("sequences.fasta") as fh:
+    for raw in fh:
+        raw = raw.strip()
+        if raw.startswith(">"):
+            cur = raw[1:].split()[0]
+            truth[cur] = ""
+        elif raw:
+            truth[cur] += raw
+s = ns.get("seqs")
+if not isinstance(s, dict) or not s:
+    fail("seqs is still empty. When a line starts with \">\", create an entry: seqs[name] = \"\"")
+keys = list(s)
+if any(k.startswith(">") for k in keys):
+    fail("The IDs still start with \">\". Use line[1:] to drop it.")
+if any(" " in k for k in keys):
+    fail(f"An ID contains the description too ({keys[0]!r}). Keep just the first word: line[1:].split()[0]")
+missing = [k for k in truth if k not in s]
+if missing:
+    fail(f"These records are missing: {missing}.")
+for k, v in truth.items():
+    got = s[k]
+    if not isinstance(got, str):
+        fail(f"seqs['{k}'] should be a string.")
+    if "\n" in got:
+        fail("The sequences contain newlines. Strip each line before adding it.")
+    if got == v[:60] or len(got) == 60:
+        fail(f"seqs['{k}'] is only the first line ({len(got)} bp). Add each line to what's there: seqs[name] = seqs[name] + line")
+    if v.endswith(got) and got != v:
+        fail(f"seqs['{k}'] is only the last line. Add each line to the existing sequence instead of replacing it.")
+    if got != v:
+        fail(f"seqs['{k}'] is {len(got)} bp but should be {len(v)} bp.")
+for k, v in truth.items():
+    if not any(k in l and str(len(v)) in l for l in out.splitlines()):
+        fail(f"Print each ID with its length, e.g. a line with {k} and {len(v)}.")
+ok(f"{len(truth)} genes parsed. Combine this with your gc_content() and translate() and you have the beginnings of a sequence-analysis tool.")
+--- hint
+Header line: `name = line[1:].split()[0]` and `seqs[name] = ""`. Any other non-empty line: `seqs[name] = seqs[name] + line`.
+--- hint
+Use `if line.startswith(">"):` … `elif line:` … so blank lines are ignored. Print after the `with` block with `for name, seq in seqs.items():`.
+--- solution
+seqs = {}
+name = None
+
+with open("sequences.fasta") as f:
+    for line in f:
+        line = line.strip()
+        if line.startswith(">"):
+            name = line[1:].split()[0]
+            seqs[name] = ""
+        elif line:
+            seqs[name] = seqs[name] + line
+
+for name, seq in seqs.items():
+    print(f"{name}: {len(seq)} bp")
+
+=== lesson csv_dictreader
+title: CSV files with csv.DictReader
+minutes: 10
+--- text
+**CSV** (comma-separated values) is the universal export format of plate readers, qPCR machines and spreadsheets. `plate_reader.csv` starts like this:
+
+```python
+well,sample,replicate,absorbance
+A1,std_0,1,0.083
+A2,std_0,2,0.092
+```
+
+You *could* split each line on `","`, but Python's built-in `csv` module handles the details (quoted fields, commas inside text) for you. `csv.DictReader` reads the first line as the **column names** and gives you each following row as a **dictionary**:
+
+```python
+import csv
+
+with open("plate_reader.csv") as f:
+    for row in csv.DictReader(f):
+        print(row["sample"], row["absorbance"])
+```
+
+`import csv` loads the module; put it at the top of your program.
+
+**Every value arrives as text**, even numbers. Convert with `float(row["absorbance"])` before doing maths.
+
+To average replicates, collect the values per sample in a dictionary of **lists**, then take the mean of each list:
+
+```python
+values = {}
+values.setdefault("std_0", []).append(0.083)
+```
+
+`setdefault(key, [])` returns the list for that key, creating an empty one first if needed, so `.append` always works.
+
+> **In the lab:** this is the Bradford workflow: average the triplicates, then fit the standards. Doing it in code means the next plate takes zero extra effort.
+--- example
+import csv
+
+with open("plate_reader.csv") as f:
+    reader = csv.DictReader(f)
+    print("columns:", reader.fieldnames)
+    for row in reader:
+        if row["well"] in ("A1", "B4"):
+            print(row)
+--- task
+1. Read `plate_reader.csv` with `csv.DictReader`.
+2. Build `means`: a dictionary mapping each **sample** name to the **mean absorbance** of its replicates (as a float).
+3. Print each sample and its mean to 3 decimals.
+--- starter
+import csv
+
+values = {}     # sample -> list of absorbances
+
+with open("plate_reader.csv") as f:
+    for row in csv.DictReader(f):
+        pass
+
+means = {}
+
+--- check
+import csv as _csv
+truth_vals = {}
+with open("plate_reader.csv") as fh:
+    for r in _csv.DictReader(fh):
+        truth_vals.setdefault(r["sample"], []).append(float(r["absorbance"]))
+truth = {k: sum(v) / len(v) for k, v in truth_vals.items()}
+m = ns.get("means")
+if not isinstance(m, dict) or not m:
+    fail("means is still empty. After reading, loop over values.items() and store sum(v) / len(v) for each sample.")
+missing = [k for k in truth if k not in m]
+if missing:
+    fail(f"These samples are missing from means: {missing}.")
+for k, v in truth.items():
+    got = m[k]
+    if isinstance(got, str):
+        fail(f"means['{k}'] is text. Convert with float(row[\"absorbance\"]) before averaging.")
+    if isinstance(got, list):
+        fail(f"means['{k}'] is a list; store the mean of the list instead: sum(v) / len(v).")
+    if abs(got - truth_vals[k][-1]) < 1e-12 and abs(got - v) > 1e-9:
+        fail(f"means['{k}'] is just the last replicate. Collect all replicates in a list first, then average.")
+    if abs(got - v) > 1e-6:
+        fail(f"means['{k}'] is {got}, expected {v:.4f}.")
+if len(m) != len(truth):
+    fail(f"means should have {len(truth)} samples, one per sample name; it has {len(m)}.")
+for k, v in truth.items():
+    if not any(k in l and f"{v:.3f}" in l for l in out.splitlines()):
+        fail(f"Print each sample with its mean to 3 decimals, e.g. {k}: {v:.3f}")
+ok("Triplicates averaged straight from the instrument file. The lysate_drug mean sits between the 500 and 1000 µg/mL standards: a standard curve (chapter 10) will turn that into a concentration.")
+--- hint
+Inside the reading loop: `values.setdefault(row["sample"], []).append(float(row["absorbance"]))`.
+--- hint
+After the `with` block: `for sample, v in values.items():` then `means[sample] = sum(v) / len(v)` and `print(f"{sample}: {means[sample]:.3f}")`.
+--- solution
+import csv
+
+values = {}     # sample -> list of absorbances
+
+with open("plate_reader.csv") as f:
+    for row in csv.DictReader(f):
+        values.setdefault(row["sample"], []).append(float(row["absorbance"]))
+
+means = {}
+for sample, v in values.items():
+    means[sample] = sum(v) / len(v)
+    print(f"{sample}: {means[sample]:.3f}")
+
+=== lesson file_write
+title: Writing a results file
+minutes: 10
+--- text
+An analysis isn't finished until the results are **saved** somewhere you (and your PI) can open them.
+
+Open a file for **writing** with mode `"w"`. It creates the file, or **replaces** it if it exists:
+
+```python
+with open("summary.tsv", "w") as f:
+    f.write("sample\tmean\n")
+    f.write("ctrl\t0.489\n")
+```
+
+`f.write()` doesn't add a newline for you: end each line with `"\n"` yourself.
+
+For CSV, `csv.writer` takes care of commas and quoting. Give it lists, one per row:
+
+```python
+import csv
+
+with open("summary.csv", "w", newline="") as f:
+    writer = csv.writer(f)
+    writer.writerow(["sample", "mean_absorbance"])
+    writer.writerow(["lysate_ctrl", 0.489])
+```
+
+(`newline=""` stops blank lines appearing between rows on some systems; always add it when writing CSV.)
+
+**Always read your file back** to confirm it says what you think. It takes two lines and catches mistakes such as a missing header or everything on one line.
+
+| Mode | Meaning |
+|---|---|
+| `"r"` (default) | read |
+| `"w"` | write: create, or overwrite! |
+| `"a"` | append to the end |
+
+> **In the lab:** `"w"` overwrites without asking. Give results files a different name from your raw data, so a bug can never destroy the original export.
+--- example
+with open("note.txt", "w") as f:
+    f.write("Bradford run, 2026-10-29\n")
+    f.write("standards: 0-1000 ug/mL\n")
+
+with open("note.txt") as f:
+    print(f.read())
+--- task
+The starter already calculates `means` from the plate reader file (last lesson's code).
+
+1. Write a CSV file called **`plate_summary.csv`** with the header `sample,mean_absorbance` and one row per sample, the mean **rounded to 3 decimals**.
+2. Then open `plate_summary.csv` again, read it, and print its contents.
+--- starter
+import csv
+
+values = {}
+with open("plate_reader.csv") as f:
+    for row in csv.DictReader(f):
+        values.setdefault(row["sample"], []).append(float(row["absorbance"]))
+
+means = {}
+for sample, v in values.items():
+    means[sample] = sum(v) / len(v)
+
+# 1. write plate_summary.csv
+
+# 2. read it back and print it
+
+--- check
+import csv as _csv
+import os as _os
+truth_vals = {}
+with open("plate_reader.csv") as fh:
+    for r in _csv.DictReader(fh):
+        truth_vals.setdefault(r["sample"], []).append(float(r["absorbance"]))
+truth = {k: sum(v) / len(v) for k, v in truth_vals.items()}
+if not _os.path.exists("plate_summary.csv"):
+    fail("There's no plate_summary.csv in the workspace yet. Open it with open(\"plate_summary.csv\", \"w\", newline=\"\").")
+with open("plate_summary.csv") as fh:
+    text = fh.read()
+lines = [l for l in text.splitlines() if l.strip()]
+if not lines:
+    fail("plate_summary.csv is empty. Write the header and rows inside the with block.")
+if len(lines) == 1 and len(truth) > 1:
+    fail("Everything is on one line. End each line with \"\\n\" (or use csv.writer, which does that for you).")
+header = [h.strip() for h in lines[0].split(",")]
+if header != ["sample", "mean_absorbance"]:
+    fail(f"The first line should be the header  sample,mean_absorbance  — yours is  {lines[0]}")
+rows = {}
+for l in lines[1:]:
+    parts = [p.strip() for p in l.split(",")]
+    if len(parts) != 2:
+        fail(f"This line doesn't have exactly two columns: {l!r}")
+    rows[parts[0]] = parts[1]
+missing = [k for k in truth if k not in rows]
+if missing:
+    fail(f"These samples are missing from the file: {missing}.")
+if len(rows) != len(truth):
+    fail(f"The file should have {len(truth)} data rows, one per sample; it has {len(rows)}.")
+for k, v in truth.items():
+    try:
+        x = float(rows[k])
+    except ValueError:
+        fail(f"The value for {k} isn't a number: {rows[k]!r}")
+    if abs(x - v) > 0.0006:
+        fail(f"The value for {k} is {rows[k]}, expected {v:.3f}.")
+    if len(rows[k].split(".")[-1]) > 3:
+        fail(f"Round the means to 3 decimals: {k} is written as {rows[k]}. Use round(mean, 3).")
+if "mean_absorbance" not in out or "lysate_ko" not in out:
+    fail("The file is right! Now open it again for reading and print what's in it.")
+ok("Saved and verified. A tidy summary file is what turns a script into a tool other people can use.")
+--- hint
+`with open("plate_summary.csv", "w", newline="") as f:` then `writer = csv.writer(f)`, `writer.writerow(["sample", "mean_absorbance"])`, and a loop with `writer.writerow([sample, round(mean, 3)])`.
+--- hint
+Reading back is a separate, later `with open("plate_summary.csv") as f:` block, with `print(f.read())` inside.
+--- solution
+import csv
+
+values = {}
+with open("plate_reader.csv") as f:
+    for row in csv.DictReader(f):
+        values.setdefault(row["sample"], []).append(float(row["absorbance"]))
+
+means = {}
+for sample, v in values.items():
+    means[sample] = sum(v) / len(v)
+
+with open("plate_summary.csv", "w", newline="") as f:
+    writer = csv.writer(f)
+    writer.writerow(["sample", "mean_absorbance"])
+    for sample, mean in means.items():
+        writer.writerow([sample, round(mean, 3)])
+
+with open("plate_summary.csv") as f:
+    print(f.read())
+--- explain
+- The first `with` block writes; when it ends the file is closed and fully saved.
+- The second `with` block opens the same file in the default read mode and prints it, which proves what landed on disk.
+- `plate_summary.csv` now appears in your workspace's file list; you could open it in Excel.
+
+=== lesson pathlib_many
+title: Many files at once with pathlib
+minutes: 12
+--- text
+Experiments come in batches: one CSV per imaging run, per plate, per day. You don't want to copy-paste your code for each file; you want to **loop over the files**.
+
+The `pathlib` module treats file paths as objects. `Path("experiments")` is the folder, and `.glob("*.csv")` finds every file inside it whose name matches the pattern (`*` means "anything"):
+
+```python
+from pathlib import Path
+
+for path in sorted(Path("experiments").glob("*.csv")):
+    print(path.name)       # run1.csv, run2.csv, ...
+```
+
+`sorted()` puts them in a predictable order (glob doesn't promise one). A `Path` can be opened just like a filename: `open(path)`.
+
+Useful bits of a path:
+
+| Code | Gives |
+|---|---|
+| `path.name` | `"run1.csv"` |
+| `path.stem` | `"run1"` |
+| `path.suffix` | `".csv"` |
+| `path.exists()` | `True` / `False` |
+
+Each file in `experiments/` holds nuclear-blebbing counts for three cell lines:
+
+```python
+cell_line,nuclei_counted,blebbed_nuclei
+HGPS,246,84
+control,150,11
+```
+
+To combine runs properly, **add up the counts** across files and divide at the end (pooled fraction), rather than averaging fractions from runs of different sizes.
+
+> **In the lab:** dropping a fourth run into the folder is all it takes to update the analysis: the code finds it automatically.
+--- example
+from pathlib import Path
+
+folder = Path("experiments")
+print(folder.exists())
+for path in sorted(folder.glob("*.csv")):
+    with open(path) as f:
+        n_lines = len(f.readlines())
+    print(path.name, path.stem, n_lines, "lines")
+--- task
+1. Loop over every `.csv` in `experiments/` with `pathlib`.
+2. For each cell line, add up `nuclei_counted` and `blebbed_nuclei` across **all runs** (two dictionaries: `total_nuclei` and `total_blebbed`).
+3. Make `fraction`: cell line **→** total blebbed ÷ total counted.
+4. Print each cell line with its blebbed percentage (1 decimal) and the number of runs you read.
+--- starter
+import csv
+from pathlib import Path
+
+total_nuclei = {}
+total_blebbed = {}
+fraction = {}
+n_runs = 0
+
+# loop over experiments/*.csv and add up the counts
+
+--- check
+import csv as _csv
+from pathlib import Path as _P
+tn, tb, per_run = {}, {}, {}
+files = sorted(_P("experiments").glob("*.csv"))
+for p in files:
+    with open(p) as fh:
+        for r in _csv.DictReader(fh):
+            c = r["cell_line"]
+            tn[c] = tn.get(c, 0) + int(r["nuclei_counted"])
+            tb[c] = tb.get(c, 0) + int(r["blebbed_nuclei"])
+            per_run.setdefault(c, []).append(int(r["blebbed_nuclei"]) / int(r["nuclei_counted"]))
+truth = {c: tb[c] / tn[c] for c in tn}
+for name, want in (("total_nuclei", tn), ("total_blebbed", tb)):
+    d = ns.get(name)
+    if not isinstance(d, dict) or not d:
+        fail(f"{name} is still empty. For each row: {name}[line] = {name}.get(line, 0) + int(...)")
+    for c, v in want.items():
+        if c not in d:
+            fail(f"{name} has no entry for {c}.")
+        if isinstance(d[c], str):
+            fail(f"{name}['{c}'] is text. Convert the column with int() before adding.")
+        if d[c] != v:
+            last = None
+            for p in files:
+                with open(p) as fh:
+                    for r in _csv.DictReader(fh):
+                        if r["cell_line"] == c:
+                            last = int(r["nuclei_counted" if name == "total_nuclei" else "blebbed_nuclei"])
+            if d[c] == last:
+                fail(f"{name}['{c}'] is only the last run's value ({last}). Add to the running total instead of replacing it.")
+            fail(f"{name}['{c}'] is {d[c]}, but the total over all {len(files)} runs is {v}.")
+fr = ns.get("fraction")
+if not isinstance(fr, dict) or not fr:
+    fail("fraction is still empty. After the loop, divide total_blebbed by total_nuclei for each cell line.")
+for c, v in truth.items():
+    if c not in fr:
+        fail(f"fraction has no entry for {c}.")
+    got = fr[c]
+    mean_frac = sum(per_run[c]) / len(per_run[c])
+    if abs(got - v * 100) < 1e-6:
+        fail("Store fraction as a fraction (0 to 1); multiply by 100 only when printing.")
+    if abs(got - mean_frac) < 1e-9 and abs(got - v) > 1e-9:
+        fail("You averaged the per-run fractions. Use the pooled totals instead: total_blebbed ÷ total_nuclei.")
+    if abs(got - v) > 1e-9:
+        fail(f"fraction['{c}'] is {got}, expected {v:.4f} (total blebbed ÷ total counted).")
+for c, v in truth.items():
+    if not any(c in l and f"{v * 100:.1f}" in l for l in out.splitlines()):
+        fail(f"Print each cell line with its percentage to 1 decimal, e.g. {c}: {v * 100:.1f}%")
+ok(f"HGPS {truth['HGPS']*100:.1f}% vs control {truth['control']*100:.1f}%, and lonafarnib brings HGPS down to {truth['HGPS_lonafarnib']*100:.1f}%: the farnesyltransferase inhibitor reduces blebbing, as expected.")
+--- hint
+`for path in sorted(Path("experiments").glob("*.csv")):` then open it and loop `for row in csv.DictReader(f):`. Count runs with `n_runs += 1` in the outer loop.
+--- hint
+Inside the row loop: `line = row["cell_line"]` and `total_nuclei[line] = total_nuclei.get(line, 0) + int(row["nuclei_counted"])` (the same for blebbed).
+--- hint
+After both loops: `for line in total_nuclei:` then `fraction[line] = total_blebbed[line] / total_nuclei[line]` and print `f"{line}: {fraction[line] * 100:.1f}%"`.
+--- solution
+import csv
+from pathlib import Path
+
+total_nuclei = {}
+total_blebbed = {}
+fraction = {}
+n_runs = 0
+
+for path in sorted(Path("experiments").glob("*.csv")):
+    n_runs += 1
+    with open(path) as f:
+        for row in csv.DictReader(f):
+            line = row["cell_line"]
+            total_nuclei[line] = total_nuclei.get(line, 0) + int(row["nuclei_counted"])
+            total_blebbed[line] = total_blebbed.get(line, 0) + int(row["blebbed_nuclei"])
+
+for line in total_nuclei:
+    fraction[line] = total_blebbed[line] / total_nuclei[line]
+    print(f"{line}: {fraction[line] * 100:.1f}% blebbed ({total_blebbed[line]}/{total_nuclei[line]})")
+
+print(n_runs, "runs read")
+--- explain
+- `sorted(Path("experiments").glob("*.csv"))` finds run1, run2 and run3; add run4.csv and it's included automatically.
+- The two dictionaries keep running totals, so each run adds to what's there.
+- The division happens once, after all files are read: that's the pooled fraction.

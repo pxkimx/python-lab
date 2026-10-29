@@ -1,0 +1,282 @@
+@chapter First steps
+@blurb Talk to Python: print results, do lab arithmetic, store values in variables and work with text.
+@icon spark
+
+=== lesson hello
+title: Hello, lab!
+minutes: 4
+--- text
+A Python program is a list of instructions that Python carries out **from top to bottom**, one line at a time.
+
+The most useful instruction to start with is `print()`. Whatever you put between the brackets is shown in the **Output** panel:
+
+```python
+print("Hello, lab!")
+print(42)
+```
+
+Text goes inside quotes (`"…"` or `'…'`). Numbers don't need quotes.
+
+Lines that start with `#` are **comments**. Python skips them; they are notes for the humans who read your code — including you, six months from now.
+
+```python
+# This line is ignored by Python
+print("This one runs")   # a comment can also follow code
+```
+
+> **How to use this app:** the editor on the right is real Python. Press **Run** (or ⌘↵) to see what your code does, and **Check** (⇧⌘↵) when you think you've solved the task.
+--- example
+# Run me! Then try changing the text.
+print("Hello, lab!")
+print("Python is ready.")
+print(96)
+--- task
+Write a program that prints **two lines**:
+
+1. `Hello, lab!`
+2. Your name (any name is fine)
+--- starter
+# Print two lines below
+
+--- check
+lines = [l for l in out.splitlines() if l.strip()]
+if len(lines) < 2:
+    fail("Your program should print two lines — use print() twice.")
+if lines[0].strip() != "Hello, lab!":
+    fail(f"The first line should be exactly  Hello, lab!  — yours is  {lines[0].strip()}")
+ok("Your first program works. Every tool you'll build starts like this.")
+--- hint
+Use `print("Hello, lab!")` on the first line, and another `print(...)` with your name on the second.
+--- solution
+print("Hello, lab!")
+print("Paul")
+
+=== lesson numbers
+title: Python as a lab calculator
+minutes: 6
+--- text
+Python does arithmetic directly:
+
+| Operator | Meaning | Example | Result |
+|---|---|---|---|
+| `+` `-` | add, subtract | `250 - 12.5` | `237.5` |
+| `*` | multiply | `3 * 96` | `288` |
+| `/` | divide | `500 / 4` | `125.0` |
+| `**` | power | `2 ** 10` | `1024` |
+| `//` | whole-number division | `100 // 12` | `8` |
+| `%` | remainder | `100 % 12` | `4` |
+
+Brackets work as in maths: `(2 + 3) * 4` is `20`.
+
+Scientific notation is written with `e`: `6.022e23` is Avogadro's number, `1e-6` is one micro-unit.
+
+> **In the lab:** `//` and `%` answer real questions. 100 samples in boxes of 12 → `100 // 12` = 8 full boxes and `100 % 12` = 4 samples left over.
+--- example
+print(3 * 96)          # wells in three 96-well plates
+print(250 / 1000)      # 250 µL in mL
+print(2 ** 10)         # cells after 10 divisions, starting from one
+print(100 // 12, 100 % 12)   # full boxes, samples left over
+--- task
+A bacterium divides every 20 minutes. Starting from **one** cell, how many cells are there after **8 hours**?
+
+Print the answer. (Hint: how many divisions happen in 8 hours?)
+--- starter
+# 8 hours = how many minutes? How many 20-minute divisions is that?
+
+--- check
+nums = out.replace(",", "").split()
+if "16777216" not in nums and "16777216.0" not in nums:
+    fail("Not yet. 8 hours is 480 minutes, which is 24 divisions; each division doubles the count.")
+ok("16,777,216 cells — exponential growth gets big fast.")
+--- hint
+8 × 60 = 480 minutes, and 480 / 20 = 24 divisions.
+--- hint
+Each division doubles the cells, so after n divisions there are `2 ** n` cells.
+--- solution
+divisions = (8 * 60) // 20
+print(2 ** divisions)
+
+=== lesson variables
+title: Variables: give your numbers names
+minutes: 7
+--- text
+A **variable** is a name for a value. You create one with `=`:
+
+```python
+stock_conc = 10      # mM
+final_conc = 0.5     # mM
+final_volume = 20    # mL
+```
+
+From then on, the name stands for the value. `=` means *"store this value under this name"*, not "is equal to".
+
+Good names make code read like a lab protocol. Rules: letters, digits and `_`, no spaces, can't start with a digit, and **case matters** (`Volume` and `volume` are different).
+
+The classic dilution formula **C1·V1 = C2·V2** becomes:
+
+```python
+v1 = final_conc * final_volume / stock_conc
+print(v1)   # mL of stock to take
+```
+
+You can update a variable using its old value: `count = count + 1` (or the shortcut `count += 1`).
+--- example
+stock_conc = 10      # mM
+final_conc = 0.5     # mM
+final_volume = 20    # mL
+
+v1 = final_conc * final_volume / stock_conc
+print("Take", v1, "mL of stock")
+print("Add", final_volume - v1, "mL of buffer")
+--- task
+You have a **50 mg/mL** antibiotic stock and want **100 mL** of medium at **50 µg/mL** (that is **0.05 mg/mL**).
+
+1. Create variables `stock`, `final`, `volume` with those values (use mg/mL and mL).
+2. Calculate the volume of stock to add, in mL, and store it in a variable called `v1`.
+3. Print `v1`.
+--- starter
+stock =
+final =
+volume =
+
+--- check
+for name in ("stock", "final", "volume", "v1"):
+    if name not in ns:
+        fail(f"Create a variable called {name}.")
+if abs(ns["stock"] - 50) > 1e-9 or abs(ns["final"] - 0.05) > 1e-9 or abs(ns["volume"] - 100) > 1e-9:
+    fail("Check the values: stock = 50, final = 0.05 (mg/mL), volume = 100 (mL).")
+if abs(ns["v1"] - 0.1) > 1e-9:
+    fail(f"v1 is {ns['v1']}, but it should be final × volume ÷ stock.")
+if "0.1" not in out:
+    fail("Calculation is right — now print(v1).")
+ok("0.1 mL, i.e. 100 µL of stock into 100 mL of medium.")
+--- hint
+Rearrange C1·V1 = C2·V2 to V1 = C2·V2 / C1, then write it with your variable names.
+--- solution
+stock = 50
+final = 0.05
+volume = 100
+v1 = final * volume / stock
+print(v1)
+
+=== lesson text
+title: Text, and DNA as text
+minutes: 7
+--- text
+Text values are called **strings** (a *string* of characters). A DNA sequence is a perfect string:
+
+```python
+seq = "ATGGCCATTGTAATGGGCCGC"
+```
+
+Useful things to do with strings:
+
+- `len(seq)` — how many characters (here: base pairs)
+- `"ATG" + "AAA"` — join strings together (*concatenation*)
+- `"AT" * 3` — repeat: `"ATATAT"`
+
+The nicest way to build output is an **f-string**: put `f` before the quote and write variables inside `{ }`:
+
+```python
+name = "lmnA fragment"
+print(f"{name} is {len(seq)} bp long")
+```
+
+You can even format numbers: `{value:.2f}` shows 2 decimal places, `{value:,}` adds thousands separators.
+--- example
+seq = "ATGGCCATTGTAATGGGCCGC"
+name = "test_gene"
+print(len(seq))
+print(f"{name}: {len(seq)} bp")
+print(f"Molar ratio: {1/3:.3f}")
+print(f"Genome size: {3100000000:,} bp")
+--- task
+A primer is `GCTGAGTACAACCTGCGCTC`.
+
+1. Store it in a variable called `primer`.
+2. Print a line exactly like this, using an f-string and `len()`:
+
+`Primer length: 20 nt`
+--- starter
+primer = ""
+
+--- check
+if ns.get("primer") != "GCTGAGTACAACCTGCGCTC":
+    fail("Store the primer sequence (exactly) in a variable called primer.")
+if "Primer length: 20 nt" not in out:
+    fail("Print exactly: Primer length: 20 nt   — use f\"Primer length: {len(primer)} nt\"")
+ok("Strings and f-strings are how every tool reports its results.")
+--- hint
+`print(f"Primer length: {len(primer)} nt")`
+--- solution
+primer = "GCTGAGTACAACCTGCGCTC"
+print(f"Primer length: {len(primer)} nt")
+
+=== lesson types
+title: Types: numbers vs. text
+minutes: 7
+--- text
+Every value has a **type**. The four you'll meet most:
+
+| Type | Example | What it is |
+|---|---|---|
+| `int` | `96` | whole number |
+| `float` | `0.512` | decimal number |
+| `str` | `"0.512"` | text |
+| `bool` | `True` | yes / no |
+
+`type(x)` tells you which one you have.
+
+This matters because **data read from files and instruments arrives as text**. `"0.5" + "0.25"` gives `"0.50.25"` — it glues text together instead of adding!
+
+Convert with:
+
+- `float("0.512")` → `0.512`
+- `int("96")` → `96`
+- `str(3.5)` → `"3.5"`
+- `round(3.14159, 2)` → `3.14`
+
+> **In the lab:** a classic bug is a spreadsheet column that "looks like numbers" but is actually text. Python makes you be explicit, which catches the problem early.
+--- example
+reading = "0.512"
+print(type(reading))
+print(reading + reading)            # text glued together!
+value = float(reading)
+print(type(value))
+print(value + value)                # real addition
+print(round(1 / 3, 4))
+--- task
+A plate reader exported three OD600 readings as text:
+
+```python
+r1 = "0.512"
+r2 = "0.498"
+r3 = "0.530"
+```
+
+Convert them to numbers, calculate the **mean**, round it to **3 decimal places**, store it in `mean_od` and print it.
+--- starter
+r1 = "0.512"
+r2 = "0.498"
+r3 = "0.530"
+
+--- check
+if "mean_od" not in ns:
+    fail("Store the result in a variable called mean_od.")
+if not isinstance(ns["mean_od"], float):
+    fail(f"mean_od should be a number (float), but it is a {type(ns['mean_od']).__name__}. Convert each reading with float().")
+if abs(ns["mean_od"] - 0.513) > 1e-9:
+    fail(f"mean_od is {ns['mean_od']}. Add the three numbers, divide by 3, then round(…, 3).")
+if "0.513" not in out:
+    fail("Now print(mean_od).")
+ok("Mean OD600 = 0.513. Converting text to numbers is step one of every data analysis.")
+--- hint
+`(float(r1) + float(r2) + float(r3)) / 3` gives the mean.
+--- hint
+Wrap it in `round(…, 3)`.
+--- solution
+r1 = "0.512"
+r2 = "0.498"
+r3 = "0.530"
+mean_od = round((float(r1) + float(r2) + float(r3)) / 3, 3)
+print(mean_od)

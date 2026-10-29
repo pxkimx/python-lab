@@ -1,0 +1,490 @@
+@chapter Functions
+@blurb Package a calculation once, give it a name, and reuse it on every sequence and sample.
+@icon function
+
+=== lesson func_def
+title: def and return: your first function
+minutes: 8
+--- text
+You've already used plenty of functions: `print()`, `len()`, `round()`. Now you'll write your own.
+
+A **function** is a named recipe. You write it once with `def`, and then *call* it as often as you like:
+
+```python
+def at_count(seq):
+    count = seq.count("A") + seq.count("T")
+    return count
+
+print(at_count("GATTACA"))    # 5
+print(at_count("GGCC"))       # 0
+```
+
+The parts:
+
+- `def at_count(seq):` — the name, and in brackets the **parameter**: a placeholder for whatever value is passed in. Don't forget the colon.
+- The indented lines are the **body**; they run each time the function is called.
+- `return count` sends the answer **back** to whoever called the function. The function stops there.
+
+**`return` is not `print`.** `print` only shows a value on the screen; `return` hands it back so you can store it, compare it, or use it in more calculations: `total = at_count(a) + at_count(b)`. A function without `return` gives back `None`.
+
+> **In the lab:** functions are like a standard protocol. You don't rewrite "how to run a Bradford" in every notebook entry; you write *"Bradford assay (SOP 4)"* and follow it each time.
+--- example
+def dilution_volume(stock, final, volume):
+    return final * volume / stock
+
+v = dilution_volume(10, 0.5, 20)
+print(f"Take {v} mL of stock")
+print(dilution_volume(50, 0.05, 100))
+print(type(dilution_volume(1, 1, 1)))
+--- task
+Write a function `gc_content(seq)` that **returns** the GC content of a DNA sequence as a percentage (0 to 100).
+
+1. Make it work for lowercase sequences too (convert with `.upper()` first).
+2. If the sequence is empty, return `0.0` instead of dividing by zero.
+3. Call it on the three sequences in the starter and print each result.
+--- starter
+def gc_content(seq):
+    # your code here
+    pass
+
+print(gc_content("ATGGCCATTGTAATGGGCCGC"))
+print(gc_content("atatgcat"))
+print(gc_content(""))
+--- check
+f = ns.get("gc_content")
+if not callable(f):
+    fail("Define a function called gc_content with  def gc_content(seq):")
+tests = [("GGCC", 100.0), ("ATAT", 0.0), ("ATGC", 50.0), ("ATGGCCATTGTAATGGGCCGC", 1200 / 21), ("gcat", 50.0), ("GCA", 200 / 3)]
+for seq, want in tests[:3]:
+    try:
+        got = f(seq)
+    except Exception as e:
+        fail(f"gc_content({seq!r}) raised {type(e).__name__}: {e}")
+    if got is None:
+        fail(f"gc_content({seq!r}) returned None. Use return (not print) to hand the result back.")
+    if not isinstance(got, (int, float)):
+        fail(f"gc_content({seq!r}) returned {got!r}; it should return a number.")
+    if abs(got - want / 100) < 1e-6 and want:
+        fail("Your function returns a fraction (0 to 1). Multiply by 100 for a percentage.")
+for seq, want in tests:
+    try:
+        got = f(seq)
+    except Exception as e:
+        fail(f"gc_content({seq!r}) raised {type(e).__name__}: {e}")
+    if seq == "gcat" and isinstance(got, (int, float)) and abs(got) < 1e-9:
+        fail("gc_content('gcat') gave 0. Use seq.upper() so lowercase sequences count too.")
+    if not isinstance(got, (int, float)) or abs(got - want) > 0.01:
+        fail(f"gc_content({seq!r}) returned {got!r}, but should be about {want:.2f}. Count G and C, divide by len(seq), multiply by 100.")
+try:
+    empty = f("")
+except ZeroDivisionError:
+    fail("gc_content(\"\") divides by zero. Add  if len(seq) == 0: return 0.0  at the start.")
+if empty is None or abs(empty) > 1e-9:
+    fail(f"gc_content(\"\") should return 0.0, not {empty!r}.")
+if "57.14" not in out and "57.1" not in out:
+    fail("The function works; now print the result for each of the three sequences.")
+ok("Your first reusable tool. Every time you need GC content from now on, it's one line.")
+--- hint
+Inside the function: `seq = seq.upper()`, then `gc = seq.count("G") + seq.count("C")`.
+--- hint
+Put `if len(seq) == 0:` with an indented `return 0.0` at the very top of the function. At the end, `return gc * 100 / len(seq)`.
+--- solution
+def gc_content(seq):
+    if len(seq) == 0:
+        return 0.0
+    seq = seq.upper()
+    gc = seq.count("G") + seq.count("C")
+    return gc * 100 / len(seq)
+
+print(gc_content("ATGGCCATTGTAATGGGCCGC"))
+print(gc_content("atatgcat"))
+print(gc_content(""))
+--- explain
+- The empty check comes first, so the division at the end never sees `len(seq) == 0`.
+- `seq = seq.upper()` makes a capitalised copy inside the function; the caller's string is untouched.
+- `return` hands the number back, which is why `print(gc_content(...))` shows it.
+
+=== lesson func_params
+title: Parameters and default values
+minutes: 9
+--- text
+A function can take **several parameters**, separated by commas. When you call it, values are matched up **in order**:
+
+```python
+def grams_needed(molar, volume_ml, mw):
+    return molar * (volume_ml / 1000) * mw
+
+print(grams_needed(0.5, 100, 58.44))   # 0.5 M NaCl, 100 mL
+```
+
+You can also pass them **by name**, which is clearer and lets you use any order: `grams_needed(volume_ml=100, molar=0.5, mw=58.44)`.
+
+A parameter can have a **default value**, used when the caller leaves it out. Defaults go **after** the parameters without one:
+
+```python
+def grams_needed(molar, volume_ml, mw=58.44):   # NaCl unless told otherwise
+    return molar * (volume_ml / 1000) * mw
+
+grams_needed(0.5, 100)              # uses mw = 58.44
+grams_needed(1, 500, mw=180.16)     # glucose
+```
+
+A primer's melting temperature has a classic quick estimate, the **Wallace rule**:
+
+**Tm = 2 × (A + T) + 4 × (G + C)** °C
+
+It's only valid for short oligos (roughly under 14–20 nt), but it's a good first sanity check.
+
+> **In the lab:** defaults capture "the usual case". Most of your buffers might be in mL with NaCl, but the function still works for anything else when you say so.
+--- example
+def cells_to_seed(area_cm2, density=10000):
+    """Cells needed for a given surface area; default 10,000 cells per cm²."""
+    return area_cm2 * density
+
+print(cells_to_seed(9.5))                  # one well of a 6-well plate
+print(cells_to_seed(75, density=5000))     # T75 flask, sparser
+print(cells_to_seed(density=20000, area_cm2=1.9))
+--- task
+1. Write `tm_wallace(primer)` that returns the Wallace-rule Tm: `2 × (A + T) + 4 × (G + C)`. Make it accept lowercase too.
+2. Write `grams_needed(molar, volume_ml, mw=58.44)` that returns the grams of solid needed to make `volume_ml` mL of a `molar` M solution. `mw` (g/mol) should default to NaCl, **58.44**.
+3. Print the Tm of `GCTGAGTACAACCTGCGCTC`, the grams for **0.5 M NaCl, 250 mL** (using the default) and for **0.1 M glucose (MW 180.16), 500 mL**.
+--- starter
+def tm_wallace(primer):
+    pass
+
+
+def grams_needed(molar, volume_ml):
+    pass
+
+
+--- check
+import inspect
+tm = ns.get("tm_wallace")
+g = ns.get("grams_needed")
+if not callable(tm):
+    fail("Define tm_wallace(primer).")
+def wallace(p):
+    p = p.upper()
+    return 2 * (p.count("A") + p.count("T")) + 4 * (p.count("G") + p.count("C"))
+for p in ("GCTGAGTACAACCTGCGCTC", "AAAA", "GGGG", "ATGC", "atgcgc"):
+    try:
+        got = tm(p)
+    except Exception as e:
+        fail(f"tm_wallace({p!r}) raised {type(e).__name__}: {e}")
+    if got is None:
+        fail("tm_wallace returned None. Did you forget return?")
+    if p == "atgcgc" and got == 0:
+        fail("tm_wallace('atgcgc') gave 0. Convert the primer with .upper() first.")
+    if not isinstance(got, (int, float)) or abs(got - wallace(p)) > 1e-9:
+        fail(f"tm_wallace({p!r}) returned {got!r}, expected {wallace(p)}. A and T count 2 °C each, G and C 4 °C each.")
+if not callable(g):
+    fail("Define grams_needed(molar, volume_ml, mw=58.44).")
+params = inspect.signature(g).parameters
+if "mw" not in params:
+    fail("grams_needed needs a third parameter called mw, with a default:  def grams_needed(molar, volume_ml, mw=58.44):")
+if params["mw"].default is inspect.Parameter.empty:
+    fail("Give mw a default value:  mw=58.44")
+if abs(params["mw"].default - 58.44) > 1e-9:
+    fail(f"The default for mw should be 58.44 (NaCl), not {params['mw'].default}.")
+cases = [((0.5, 100), {}, 2.922), ((1, 1000), {"mw": 180.16}, 180.16), ((0.1, 500), {"mw": 180.16}, 9.008), ((2, 50), {}, 5.844)]
+for args, kw, want in cases:
+    try:
+        got = g(*args, **kw)
+    except Exception as e:
+        fail(f"grams_needed{args} raised {type(e).__name__}: {e}")
+    if got is None:
+        fail("grams_needed returned None. Did you forget return?")
+    if abs(got - want * 1000) < 1e-6:
+        fail("Your answer is 1000× too big: volume_ml is in mL, so divide by 1000 to get litres.")
+    if abs(got - want) > 1e-6:
+        fail(f"grams_needed({', '.join(map(str, args))}{', mw=180.16' if kw else ''}) returned {got}, expected {want}. grams = molar × litres × mw.")
+want_tm = str(wallace("GCTGAGTACAACCTGCGCTC"))
+if want_tm not in out:
+    fail(f"Print the Tm of GCTGAGTACAACCTGCGCTC (it should be {want_tm}).")
+if "7.30" not in out and "7.305" not in out and "7.3" not in out:
+    fail("Print grams_needed(0.5, 250), the NaCl amount.")
+if "9.008" not in out and "9.01" not in out:
+    fail("Print grams_needed(0.1, 500, mw=180.16), the glucose amount.")
+ok("Tm 64 °C, 7.3 g NaCl, 9.0 g glucose. Note that 64 °C is beyond where the Wallace rule is reliable for a 20-mer, so for real primer design you'd use nearest-neighbour Tm.")
+--- hint
+Count with `.count()` on the uppercased primer: `at = p.count("A") + p.count("T")`, same for G and C, then `return 2 * at + 4 * gc`.
+--- hint
+Change the second definition to `def grams_needed(molar, volume_ml, mw=58.44):` and `return molar * (volume_ml / 1000) * mw`.
+--- solution
+def tm_wallace(primer):
+    p = primer.upper()
+    at = p.count("A") + p.count("T")
+    gc = p.count("G") + p.count("C")
+    return 2 * at + 4 * gc
+
+
+def grams_needed(molar, volume_ml, mw=58.44):
+    return molar * (volume_ml / 1000) * mw
+
+
+print("Tm:", tm_wallace("GCTGAGTACAACCTGCGCTC"), "°C")
+print(f"NaCl: {grams_needed(0.5, 250):.3f} g")
+print(f"Glucose: {grams_needed(0.1, 500, mw=180.16):.3f} g")
+
+=== lesson func_toolkit
+title: Build a reusable toolkit
+minutes: 11
+--- text
+The real power of functions appears when they **work together**. Small functions, each doing one job well, combine like modules on a cloning vector.
+
+Give every function a **docstring**: a string on the first line of the body that says what it does. It's what `help()` shows, and it reminds you later.
+
+```python
+def reverse_complement(seq):
+    """Return the reverse complement of a DNA sequence."""
+    ...
+```
+
+How do you know a function is right? **Test it** with cases where you know the answer. `assert` checks that something is true and stops the program loudly if it isn't:
+
+```python
+assert reverse_complement("ATGC") == "GCAT"
+assert reverse_complement("") == ""
+```
+
+If the asserts pass, nothing happens (silence is good news). If one fails you get an **AssertionError** pointing at the exact line, before a wrong result sneaks into your analysis.
+
+Once both pieces work, they snap together: `translate(reverse_complement(dna))` reads the other strand in one line. The inner call runs first, and its result is passed to the outer one.
+
+> **In the lab:** asserts are your positive and negative controls. You wouldn't trust a western blot without them; don't trust a function without a couple of known answers.
+--- example
+def complement_base(base):
+    """Return the complementary base."""
+    pairs = {"A": "T", "T": "A", "G": "C", "C": "G"}
+    return pairs[base]
+
+def rna(seq):
+    """Transcribe DNA to RNA."""
+    return seq.replace("T", "U")
+
+assert complement_base("A") == "T"
+assert rna("ATG") == "AUG"
+print(rna("ATG" + complement_base("A")))
+print(complement_base.__doc__)
+--- task
+`hidden` is a gene written on the **reverse** strand. Build two tools and use them together:
+
+1. `reverse_complement(seq)` returns the reverse complement (works for an empty string too).
+2. `translate(seq)` returns the protein string, reading from position 0 and stopping before the first stop codon. Use `codon_table` from the starter.
+3. Give both functions a docstring, and write at least one `assert` test for each.
+4. Store `translate(reverse_complement(hidden))` in `protein` and print it.
+--- starter
+bases = "TCAG"
+amino_acids = "FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG"
+codon_table = {}
+n = 0
+for b1 in bases:
+    for b2 in bases:
+        for b3 in bases:
+            codon_table[b1 + b2 + b3] = amino_acids[n]
+            n += 1
+
+hidden = "TTAGTGATGGTGATGGTGATGTTTCAT"
+
+
+def reverse_complement(seq):
+    """Return the reverse complement of a DNA sequence."""
+    pass
+
+
+def translate(seq):
+    """Translate DNA (frame 1) into protein, stopping at the first stop codon."""
+    pass
+
+
+# tests: assert ...
+
+protein = ""
+print(protein)
+--- check
+rc = ns.get("reverse_complement")
+tr = ns.get("translate")
+if not callable(rc) or not callable(tr):
+    fail("Define both reverse_complement(seq) and translate(seq).")
+for f in (rc, tr):
+    if not (f.__doc__ or "").strip():
+        fail(f"Give {f.__name__} a docstring: a \"\"\"text\"\"\" line right under the def line.")
+for seq, want in [("ATGC", "GCAT"), ("AAAACCC", "GGGTTTT"), ("", ""), ("GAATTC", "GAATTC"), ("A", "T")]:
+    try:
+        got = rc(seq)
+    except Exception as e:
+        fail(f"reverse_complement({seq!r}) raised {type(e).__name__}: {e}")
+    if got is None:
+        fail("reverse_complement returned None. Did you forget return?")
+    if seq == "AAAACCC" and got == "TTTTGGG":
+        fail("reverse_complement('AAAACCC') gave 'TTTTGGG': that's the complement, but not reversed. Add [::-1].")
+    if seq == "AAAACCC" and got == "CCCAAAA":
+        fail("reverse_complement('AAAACCC') gave 'CCCAAAA': that's reversed, but not complemented.")
+    if got != want:
+        fail(f"reverse_complement({seq!r}) returned {got!r}, expected {want!r}.")
+for seq, want in [("ATGAAATAA", "MK"), ("ATGTGGTGA", "MW"), ("ATGGCT", "MA"), ("TAAATG", ""), ("ATGGCTA", "MA"), ("", "")]:
+    try:
+        got = tr(seq)
+    except Exception as e:
+        fail(f"translate({seq!r}) raised {type(e).__name__}: {e}. (Remember range(0, len(seq) - 2, 3) so a leftover base isn't read as a codon.)")
+    if got is None:
+        fail("translate returned None. Did you forget return?")
+    if isinstance(got, str) and got.endswith("*"):
+        fail(f"translate({seq!r}) returned {got!r}. Stop before adding the '*'.")
+    if got != want:
+        fail(f"translate({seq!r}) returned {got!r}, expected {want!r}.")
+p = ns.get("protein")
+if p != "MKHHHHHH":
+    fail(f"protein is {p!r}. Set protein = translate(reverse_complement(hidden)).")
+if "MKHHHHHH" not in out:
+    fail("protein is right — print it.")
+ok("MKHHHHHH: a His-tag hiding on the reverse strand. Two small tested functions, combined in one line — that's how real tools are built.")
+--- hint
+Reverse complement: build a `pairs` dictionary, loop over `seq[::-1]` and add `pairs[base]` to a new string, then return it.
+--- hint
+`translate` is the loop from the codon-table lesson, wrapped in a function: start with `protein = ""`, add each amino acid, `break` at `"*"`, and `return protein` at the end (outside the loop).
+--- hint
+Tests look like `assert reverse_complement("ATGC") == "GCAT"` and `assert translate("ATGAAATAA") == "MK"`.
+--- solution
+bases = "TCAG"
+amino_acids = "FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG"
+codon_table = {}
+n = 0
+for b1 in bases:
+    for b2 in bases:
+        for b3 in bases:
+            codon_table[b1 + b2 + b3] = amino_acids[n]
+            n += 1
+
+hidden = "TTAGTGATGGTGATGGTGATGTTTCAT"
+
+
+def reverse_complement(seq):
+    """Return the reverse complement of a DNA sequence."""
+    pairs = {"A": "T", "T": "A", "G": "C", "C": "G"}
+    result = ""
+    for base in seq[::-1]:
+        result = result + pairs[base]
+    return result
+
+
+def translate(seq):
+    """Translate DNA (frame 1) into protein, stopping at the first stop codon."""
+    protein = ""
+    for i in range(0, len(seq) - 2, 3):
+        aa = codon_table[seq[i:i+3]]
+        if aa == "*":
+            break
+        protein = protein + aa
+    return protein
+
+
+assert reverse_complement("ATGC") == "GCAT"
+assert reverse_complement("") == ""
+assert translate("ATGAAATAA") == "MK"
+assert translate("ATGGCT") == "MA"
+
+protein = translate(reverse_complement(hidden))
+print(protein)
+--- explain
+- `reverse_complement` walks the sequence backwards (`seq[::-1]`) and swaps each base via the `pairs` dictionary.
+- `translate` uses `codon_table`, which is defined outside the function; functions can read variables from the main program.
+- The asserts run silently because they pass. Change `"GCAT"` to `"GCTA"` and run again to see what a failing test looks like.
+
+=== lesson func_tuples
+title: Returning several values
+minutes: 9
+--- text
+Sometimes one answer isn't enough. For a set of replicates you want the **count, mean, minimum and maximum** together.
+
+A function can return several values separated by commas. Python packs them into a **tuple**: like a list, but written with round brackets and it can't be changed afterwards.
+
+```python
+def low_high(values):
+    return min(values), max(values)
+
+result = low_high([24.1, 23.8, 24.5])
+print(result)          # (23.8, 24.5)
+print(result[0])       # 23.8
+```
+
+Even nicer, **unpack** the tuple straight into separate variables, one name per value, in the same order:
+
+```python
+low, high = low_high([24.1, 23.8, 24.5])
+print(f"range {low}–{high}")
+```
+
+You've done this already without knowing it: `for gene, value in d.items()` unpacks each (key, value) tuple.
+
+Useful built-ins for lists of numbers: `len()`, `sum()`, `min()`, `max()`. The mean is `sum(values) / len(values)`.
+
+> **In the lab:** qPCR technical replicates should agree within about 0.3 cycles. Returning min and max alongside the mean lets you flag a bad well at a glance.
+--- example
+def plate_layout(n_samples, per_row=12):
+    """Return how many full rows and how many samples left over."""
+    return n_samples // per_row, n_samples % per_row
+
+rows, leftover = plate_layout(30)
+print(f"{rows} full rows, {leftover} wells in the next row")
+
+info = plate_layout(96)
+print(info, type(info))
+--- task
+1. Write `summarize(values)` that returns a tuple **(n, mean, minimum, maximum)** for a list of numbers.
+2. Call it on `ct_values` and unpack the result into four variables: `n`, `mean_ct`, `low`, `high`.
+3. Print a summary line with all four, and print `spread = high - low` rounded to 2 decimals.
+--- starter
+ct_values = [24.31, 24.18, 24.92, 24.27]   # LMNA, technical replicates
+
+
+def summarize(values):
+    pass
+
+
+--- check
+f = ns.get("summarize")
+if not callable(f):
+    fail("Define summarize(values).")
+for vals, want in [([1, 2, 3], (3, 2.0, 1, 3)), ([0.5], (1, 0.5, 0.5, 0.5)), ([10, 30, 20, 40], (4, 25.0, 10, 40))]:
+    try:
+        got = f(vals)
+    except Exception as e:
+        fail(f"summarize({vals}) raised {type(e).__name__}: {e}")
+    if got is None:
+        fail("summarize returned None. Return all four values:  return n, mean, minimum, maximum")
+    if not isinstance(got, (tuple, list)) or len(got) != 4:
+        fail(f"summarize({vals}) returned {got!r}; it should return four values (n, mean, minimum, maximum).")
+    if any(abs(a - b) > 1e-9 for a, b in zip(got, want)):
+        fail(f"summarize({vals}) returned {tuple(got)}, expected {want}. Check the order: n, mean, minimum, maximum.")
+ct = ns.get("ct_values", [])
+truth = (len(ct), sum(ct) / len(ct), min(ct), max(ct))
+for name, want in zip(("n", "mean_ct", "low", "high"), truth):
+    if name not in ns:
+        fail(f"Unpack the result into four variables:  n, mean_ct, low, high = summarize(ct_values)  ({name} is missing).")
+    if abs(ns[name] - want) > 1e-9:
+        fail(f"{name} is {ns[name]}, expected {want}. Did you unpack in the order n, mean_ct, low, high?")
+if "24.42" not in out:
+    fail("Print the summary, including the mean (24.42 when rounded).")
+if "0.74" not in out:
+    fail("Print the spread, high - low, rounded to 2 decimals (0.74).")
+ok("Spread 0.74 cycles: more than the usual 0.3 limit, so that 24.92 well deserves a second look.")
+--- hint
+Inside the function: `n = len(values)`, `mean = sum(values) / n`, then `return n, mean, min(values), max(values)`.
+--- hint
+`n, mean_ct, low, high = summarize(ct_values)`, then e.g. `print(f"n={n} mean={mean_ct:.2f} min={low} max={high}")`.
+--- solution
+ct_values = [24.31, 24.18, 24.92, 24.27]   # LMNA, technical replicates
+
+
+def summarize(values):
+    """Return (n, mean, minimum, maximum) of a list of numbers."""
+    n = len(values)
+    mean = sum(values) / n
+    return n, mean, min(values), max(values)
+
+
+n, mean_ct, low, high = summarize(ct_values)
+print(f"n={n}  mean={mean_ct:.2f}  min={low}  max={high}")
+spread = high - low
+print(f"spread: {spread:.2f} cycles")

@@ -1,0 +1,457 @@
+@chapter Making decisions
+@blurb Ask yes/no questions about your data and let the program choose what to do: filter, classify and stop early.
+@icon branch
+
+=== lesson comparisons
+title: Comparisons: True or False
+minutes: 7
+--- text
+Every decision a program makes starts with a question whose answer is `True` or `False` (the `bool` type).
+
+| Comparison | Means | Example | Result |
+|---|---|---|---|
+| `<` `>` | less / greater than | `0.003 < 0.05` | `True` |
+| `<=` `>=` | less / greater than or equal | `52 >= 52` | `True` |
+| `==` | equal to (two `=` signs!) | `"ATG" == "ATG"` | `True` |
+| `!=` | not equal to | `"TAA" != "TAG"` | `True` |
+| `in` | is it inside? | `"GAATTC" in seq` | `True` or `False` |
+
+Remember: a single `=` *stores* a value, a double `==` *compares*.
+
+Combine questions with **`and`**, **`or`** and **`not`**:
+
+```python
+p_value = 0.003
+fold_change = 1.4
+print(p_value < 0.05 and fold_change >= 2)   # False: both must be true
+print(p_value < 0.05 or fold_change >= 2)    # True: one is enough
+print(not p_value < 0.05)                    # False: flips the answer
+```
+
+Python also lets you write ranges the way you would on paper: `0.2 <= od <= 0.8`.
+
+`in` works for strings (*is this motif in the sequence?*) and for lists (*is this sample in my list?*).
+
+> **In the lab:** comparing text is exact. `"HGPS" == "hgps"` is `False`, and so is `"HGPS " == "HGPS"` (trailing space). This is why you tidy names with `strip()` and `lower()` before comparing them.
+--- example
+p_value = 0.003
+od = 0.65
+seq = "ATGCGAATTCGGTAA"
+
+print("significant:", p_value < 0.05)
+print("OD in linear range:", 0.2 <= od <= 0.8)
+print("has EcoRI site:", "GAATTC" in seq)
+print("has BamHI site:", "GGATCC" in seq)
+print("HGPS" in ["control", "HGPS"])
+print("hgps" == "HGPS", "hgps".upper() == "HGPS")
+--- task
+```python
+p_value = 0.003
+fold_change = 1.4
+od = 0.65
+seq = "ATGCGAATTCGGTAA"
+```
+
+Store the answer to each question in a variable, **using comparisons** (don't type `True` or `False` yourself):
+
+1. `is_significant`: is `p_value` below 0.05?
+2. `in_range`: is `od` between 0.2 and 0.8 (both included)?
+3. `has_ecori`: does `seq` contain the EcoRI site `GAATTC`?
+4. `strong_hit`: is `p_value` below 0.01 **and** `fold_change` at least 2?
+5. Print all four.
+--- starter
+p_value = 0.003
+fold_change = 1.4
+od = 0.65
+seq = "ATGCGAATTCGGTAA"
+
+--- check
+expected = {"is_significant": True, "in_range": True, "has_ecori": True, "strong_hit": False}
+for name, want in expected.items():
+    if name not in ns:
+        fail(f"Create a variable called {name}.")
+    v = ns[name]
+    if not isinstance(v, bool):
+        fail(f"{name} should be True or False, but it is {v!r}. Write a comparison, e.g. p_value < 0.05.")
+    if v != want:
+        if name == "strong_hit":
+            fail("strong_hit should be False: the p-value passes, but the fold change is only 1.4. With 'and', both parts must be true.")
+        fail(f"{name} should be {want}. Check the comparison you wrote for it.")
+if "True" not in out or "False" not in out:
+    fail("All four are right. Now print them.")
+ok("Three yeses and a no. Every filter you write from now on is built from questions like these.")
+--- hint
+`is_significant = p_value < 0.05`, and `has_ecori = "GAATTC" in seq`.
+--- hint
+`in_range = 0.2 <= od <= 0.8` and `strong_hit = p_value < 0.01 and fold_change >= 2`.
+--- solution
+p_value = 0.003
+fold_change = 1.4
+od = 0.65
+seq = "ATGCGAATTCGGTAA"
+
+is_significant = p_value < 0.05
+in_range = 0.2 <= od <= 0.8
+has_ecori = "GAATTC" in seq
+strong_hit = p_value < 0.01 and fold_change >= 2
+print(is_significant, in_range, has_ecori, strong_hit)
+
+=== lesson if_else
+title: if, elif and else
+minutes: 9
+--- text
+An **if** statement runs some lines only when a condition is true:
+
+```python
+if seq.startswith("ATG"):
+    print("Starts with a start codon")
+```
+
+Add **else** for what to do otherwise, and **elif** ("else if") for extra cases in between:
+
+```python
+p = 0.003
+if p < 0.001:
+    stars = "***"
+elif p < 0.01:
+    stars = "**"
+elif p < 0.05:
+    stars = "*"
+else:
+    stars = "ns"
+print(stars)   # **
+```
+
+The rules:
+
+- Each line ends with a **colon**, and the lines that belong to it are **indented**, just like loops.
+- Python checks the conditions **from top to bottom** and runs **only the first one that is true**. That's why the order matters: put `p < 0.001` before `p < 0.01`.
+- `else` has no condition; it catches everything left over.
+
+> **In the lab:** watch the edges. "Below 52 °C is too low" means `tm < 52`, so a primer with a Tm of exactly 52 °C is fine. Writing `tm <= 52` would quietly reject it. Decide what happens at the boundary, then write it on purpose.
+--- example
+seq = "ATGGAGACCCCGTCCTAA"
+if seq.startswith("ATG"):
+    print("Starts with a start codon")
+else:
+    print("No ATG at the start: check the reading frame")
+
+p = 0.003
+if p < 0.001:
+    stars = "***"
+elif p < 0.01:
+    stars = "**"
+elif p < 0.05:
+    stars = "*"
+else:
+    stars = "ns"
+print(f"p = {p}: {stars}")
+--- task
+A quick way to estimate a primer's melting temperature is the **Wallace rule**: Tm = 2 × (number of A + T) + 4 × (number of G + C), in °C.
+
+```python
+primer = "ATGAAACTGGTTTAGTAAAC"
+```
+
+1. Calculate the Tm with the Wallace rule and store it in `tm`.
+2. Use `if` / `elif` / `else` to store a verdict in `verdict`: `"too low"` if `tm` is below 52, `"too high"` if `tm` is above 65, and `"ok"` otherwise.
+3. Print a line like `Tm = 52 °C: ok`.
+--- starter
+primer = "ATGAAACTGGTTTAGTAAAC"
+
+tm =
+
+--- check
+primer = "ATGAAACTGGTTTAGTAAAC"
+if ns.get("primer") != primer:
+    fail("Keep the primer exactly as given in the variable primer.")
+if "tm" not in ns:
+    fail("Create a variable called tm.")
+tm = ns["tm"]
+if not isinstance(tm, (int, float)):
+    fail("tm should be a number. Count the bases with primer.count(...).")
+if tm == 2 * (primer.count("G") + primer.count("C")) + 4 * (primer.count("A") + primer.count("T")):
+    fail("The weights are swapped: A and T count 2 each, G and C count 4 each.")
+if abs(tm - 52) > 1e-9:
+    fail(f"tm is {tm}. Use 2 * (count of A + count of T) + 4 * (count of G + count of C).")
+if "verdict" not in ns:
+    fail("Create a variable called verdict with if / elif / else.")
+v = ns["verdict"]
+if v == "too low":
+    fail("A Tm of exactly 52 is not below 52. Use tm < 52, not tm <= 52.")
+if v != "ok":
+    fail(f"verdict is {v!r}, but a Tm of 52 should give \"ok\". Check the order and the signs of your conditions.")
+if "52" not in out or "ok" not in out:
+    fail("tm and verdict are right. Now print them on one line.")
+ok("52 °C, right at the edge but acceptable. Writing boundaries deliberately is what makes a tool trustworthy.")
+--- hint
+`tm = 2 * (primer.count("A") + primer.count("T")) + 4 * (primer.count("G") + primer.count("C"))`
+--- hint
+```python
+if tm < 52:
+    verdict = "too low"
+elif ...:
+```
+--- solution
+primer = "ATGAAACTGGTTTAGTAAAC"
+
+tm = 2 * (primer.count("A") + primer.count("T")) + 4 * (primer.count("G") + primer.count("C"))
+if tm < 52:
+    verdict = "too low"
+elif tm > 65:
+    verdict = "too high"
+else:
+    verdict = "ok"
+print(f"Tm = {tm} °C: {verdict}")
+
+=== lesson loop_filter
+title: Loops + decisions: filter and count
+minutes: 9
+--- text
+Put an `if` **inside** a loop and you can deal with each item differently. The two patterns you'll use most:
+
+**Filter**: keep only the items that pass a test.
+
+```python
+lengths = [150, 32, 148, 75]
+kept = []
+for n in lengths:
+    if n >= 100:
+        kept.append(n)
+print(kept)    # [150, 148]
+```
+
+**Count**: add 1 to a counter each time the test passes.
+
+```python
+n_long = 0
+for n in lengths:
+    if n >= 100:
+        n_long = n_long + 1
+```
+
+List comprehensions can filter too: add `if` at the end.
+
+```python
+kept = [n for n in lengths if n >= 100]
+```
+
+> **In the lab:** "discard reads shorter than 30 bases", "keep wells with OD below 2", "count genes with p < 0.05": almost every quality-control step is a filter or a count. Read the threshold carefully: *at least 30* is `>= 30`, *below 0.05* is `< 0.05`.
+--- example
+lengths = [150, 32, 148, 75, 101]
+
+kept = []
+for n in lengths:
+    if n >= 100:
+        kept.append(n)
+    else:
+        print(f"discarding a read of {n} bp")
+print("kept:", kept)
+
+print("with a comprehension:", [n for n in lengths if n >= 100])
+
+genes = ["LMNA", "CDKN1A", "GAPDH", "IL6"]
+fc = [1.1, 3.2, 1.0, 4.5]
+n_up = 0
+for i in range(len(genes)):
+    if fc[i] >= 2:
+        n_up = n_up + 1
+        print(genes[i], "is up", fc[i], "fold")
+print(n_up, "genes up at least 2-fold")
+--- task
+```python
+reads = ["CGATTCAAATGACGGCAGCAGGCCGGGAGT", "CCCTGAGA",
+         "GGCTTGTTCCGGAAATGTGCCATCTGCGTGCGAACGCAGCGTAAG",
+         "AGGAGGGCTAGCTGCGTCGAGATCGGGAT", "CTCAAAACCATCGAAGTCTCCTTTACTTCTCTCAAG",
+         "GCCCTGCGAGAT", "ATTATCCGGTGTCGGTTAGCATCGACTTTTCACCAGATTCACCGTTAAAA",
+         "TGCAGAAGGAATTCGTCTTAAAGTTTACGTT"]
+p_values = [0.003, 0.21, 0.049, 0.05, 0.0004, 0.8, 0.012, 0.33]
+```
+
+1. Make a list `long_reads` that holds only the reads that are **at least 30 bases** long.
+2. Count how many p-values are **below 0.05** and store the count in `n_significant`.
+3. Print how many reads you kept and how many p-values are significant.
+--- starter
+reads = ["CGATTCAAATGACGGCAGCAGGCCGGGAGT", "CCCTGAGA",
+         "GGCTTGTTCCGGAAATGTGCCATCTGCGTGCGAACGCAGCGTAAG",
+         "AGGAGGGCTAGCTGCGTCGAGATCGGGAT", "CTCAAAACCATCGAAGTCTCCTTTACTTCTCTCAAG",
+         "GCCCTGCGAGAT", "ATTATCCGGTGTCGGTTAGCATCGACTTTTCACCAGATTCACCGTTAAAA",
+         "TGCAGAAGGAATTCGTCTTAAAGTTTACGTT"]
+p_values = [0.003, 0.21, 0.049, 0.05, 0.0004, 0.8, 0.012, 0.33]
+
+long_reads = []
+n_significant = 0
+
+--- check
+reads = ["CGATTCAAATGACGGCAGCAGGCCGGGAGT", "CCCTGAGA",
+         "GGCTTGTTCCGGAAATGTGCCATCTGCGTGCGAACGCAGCGTAAG",
+         "AGGAGGGCTAGCTGCGTCGAGATCGGGAT", "CTCAAAACCATCGAAGTCTCCTTTACTTCTCTCAAG",
+         "GCCCTGCGAGAT", "ATTATCCGGTGTCGGTTAGCATCGACTTTTCACCAGATTCACCGTTAAAA",
+         "TGCAGAAGGAATTCGTCTTAAAGTTTACGTT"]
+good = [r for r in reads if len(r) >= 30]
+if "long_reads" not in ns or not isinstance(ns["long_reads"], list):
+    fail("Create a list called long_reads.")
+lr = ns["long_reads"]
+if len(lr) == 0:
+    fail("long_reads is empty. Loop over reads and append each read whose len() is at least 30.")
+if lr == [r for r in reads if len(r) > 30]:
+    fail("You dropped the read that is exactly 30 bases. 'At least 30' means >= 30.")
+if all(isinstance(x, int) for x in lr):
+    fail("long_reads holds lengths. Append the reads themselves (the strings), not len(read).")
+if lr != good:
+    fail(f"long_reads should hold the {len(good)} reads of length 30 or more, in their original order.")
+if "n_significant" not in ns:
+    fail("Create a counter called n_significant.")
+n = ns["n_significant"]
+if n == 5:
+    fail("You counted p = 0.05 as significant. 'Below 0.05' means < 0.05.")
+if n == 0:
+    fail("n_significant is still 0. Inside a loop over p_values, add 1 whenever p < 0.05.")
+if n != 4:
+    fail(f"n_significant is {n}. Count the p-values that are below 0.05.")
+if "5" not in out or "4" not in out:
+    fail("Both results are right. Now print them.")
+ok("5 reads kept, 4 significant p-values. That's read QC and a hit list, the first two steps of most sequencing analyses.")
+--- hint
+```python
+for read in reads:
+    if len(read) >= 30:
+        ...
+```
+--- hint
+For the count, loop over `p_values` and inside an `if p < 0.05:` add `n_significant = n_significant + 1`.
+--- solution
+reads = ["CGATTCAAATGACGGCAGCAGGCCGGGAGT", "CCCTGAGA",
+         "GGCTTGTTCCGGAAATGTGCCATCTGCGTGCGAACGCAGCGTAAG",
+         "AGGAGGGCTAGCTGCGTCGAGATCGGGAT", "CTCAAAACCATCGAAGTCTCCTTTACTTCTCTCAAG",
+         "GCCCTGCGAGAT", "ATTATCCGGTGTCGGTTAGCATCGACTTTTCACCAGATTCACCGTTAAAA",
+         "TGCAGAAGGAATTCGTCTTAAAGTTTACGTT"]
+p_values = [0.003, 0.21, 0.049, 0.05, 0.0004, 0.8, 0.012, 0.33]
+
+long_reads = []
+n_significant = 0
+
+for read in reads:
+    if len(read) >= 30:
+        long_reads.append(read)
+
+for p in p_values:
+    if p < 0.05:
+        n_significant = n_significant + 1
+
+print(f"kept {len(long_reads)} of {len(reads)} reads")
+print(f"{n_significant} significant p-values")
+
+=== lesson first_stop
+title: Stopping early: the first stop codon
+minutes: 9
+--- text
+Sometimes you want to stop a loop as soon as you've found what you're looking for. **`break`** ends the loop immediately, and the program continues after it:
+
+```python
+cts = [35.1, 33.0, 28.4, 27.9]
+for ct in cts:
+    if ct < 30:
+        print("first sample below Ct 30:", ct)
+        break
+```
+
+A common companion is a variable set to a "not found yet" value **before** the loop, which the loop overwrites if it finds something:
+
+```python
+position = -1           # -1 means "not found"
+for i in range(len(cts)):
+    if cts[i] < 30:
+        position = i
+        break
+print(position)         # 2
+```
+
+The **reading frame** matters when you look for stop codons. `seq.find("TAA")` finds a `TAA` *anywhere*, even when it straddles two codons. To find a real stop, step through the sequence codon by codon with `range(0, len(seq), 3)` and test each codon.
+
+To test against several possibilities at once, use `in` with a list:
+
+```python
+codon = "TAG"
+print(codon in ["TAA", "TAG", "TGA"])   # True
+```
+
+> **In the lab:** finding the first in-frame stop is how you work out the length of the protein a transcript encodes, or whether a mutation introduces a premature stop codon.
+--- example
+seq = "ATGCTAAGCTGACCC"
+print("find() says TAA at index", seq.find("TAA"), "(out of frame!)")
+
+stop_index = -1
+for i in range(0, len(seq), 3):
+    codon = seq[i:i+3]
+    print("checking", i, codon)
+    if codon in ["TAA", "TAG", "TGA"]:
+        stop_index = i
+        break
+print("first in-frame stop at index", stop_index)
+--- task
+```python
+seq = "ATGGCTAAAGGTTGGCCATAGCTGTGATAA"
+```
+
+1. Set `stop_index = -1` before the loop.
+2. Walk through `seq` codon by codon (frame 1). When you meet the **first** stop codon (`TAA`, `TAG` or `TGA`), store the index where that codon starts in `stop_index` and `break`.
+3. Store the number of codons **before** the stop (the length of the protein in amino acids) in `protein_length`. Hint: each codon is 3 bases.
+4. Print both.
+--- starter
+seq = "ATGGCTAAAGGTTGGCCATAGCTGTGATAA"
+stop_index = -1
+
+--- check
+seq = "ATGGCTAAAGGTTGGCCATAGCTGTGATAA"
+if ns.get("seq") != seq:
+    fail("Keep the sequence exactly as given in the variable seq.")
+if "stop_index" not in ns:
+    fail("Create a variable called stop_index.")
+s = ns["stop_index"]
+if s == -1:
+    fail("stop_index is still -1. Loop with range(0, len(seq), 3) and check each codon seq[i:i+3].")
+if s == 5:
+    fail("Index 5 is the TAA that find() sees, but it's out of frame (it spans two codons). Step through in threes instead.")
+if s in (24, 27):
+    fail("That's a later stop. Use break so the loop ends at the first stop codon.")
+if s == 19:
+    fail("Off by one: that's the biologist's position. stop_index should be the Python index i where the codon starts.")
+if s != 18:
+    fail(f"stop_index is {s}. It should be the index i where the first in-frame stop codon starts.")
+if "protein_length" not in ns:
+    fail("Create a variable called protein_length.")
+pl = ns["protein_length"]
+if pl == 7:
+    fail("protein_length counts the stop codon too. The stop codon doesn't code for an amino acid.")
+if pl == 18:
+    fail("18 is a number of bases. Divide by 3 to get codons.")
+if pl != 6:
+    fail(f"protein_length is {pl}. How many whole codons come before index {s}?")
+if "18" not in out or "6" not in out:
+    fail("Both values are right. Now print them.")
+ok("Stop at index 18, a 6-amino-acid peptide. You've just written the core of an ORF finder.")
+--- hint
+```python
+for i in range(0, len(seq), 3):
+    codon = seq[i:i+3]
+    if codon in ["TAA", "TAG", "TGA"]:
+        ...
+```
+--- hint
+Inside the `if`: `stop_index = i` then `break`. After the loop, `protein_length = stop_index // 3`.
+--- solution
+seq = "ATGGCTAAAGGTTGGCCATAGCTGTGATAA"
+stop_index = -1
+
+for i in range(0, len(seq), 3):
+    codon = seq[i:i+3]
+    if codon in ["TAA", "TAG", "TGA"]:
+        stop_index = i
+        break
+
+protein_length = stop_index // 3
+print("first stop at index", stop_index)
+print("protein length:", protein_length, "amino acids")
+--- explain
+Stepping by 3 keeps us in frame, so the `TAA` hidden across the `GCT AAA` codons is never seen. The first codon that is a stop is `TAG` at index 18; `break` ends the loop there, so the later `TGA` and `TAA` are ignored. Since every codon is 3 bases, the number of codons before index 18 is `18 // 3 = 6`.

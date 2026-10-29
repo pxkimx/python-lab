@@ -1,0 +1,426 @@
+@chapter Dictionaries
+@blurb Look things up by name: gene → expression, base → count, codon → amino acid.
+@icon table
+
+=== lesson dict_basics
+title: Dictionaries: look things up by name
+minutes: 8
+--- text
+A list keeps values **in order**: you find things by position (`values[0]`). But in the lab you usually look things up **by name**: *what was the expression of LMNA?*
+
+A **dictionary** (`dict`) stores **key → value** pairs. Write it with curly brackets, a colon between each key and its value, and commas between pairs:
+
+```python
+expression = {"LMNA": 12.4, "LMNB1": 8.1, "GAPDH": 250.0}
+print(expression["LMNA"])      # 12.4
+```
+
+The same square brackets add a new entry or change an existing one:
+
+```python
+expression["IL6"] = 5.7        # new key: added
+expression["LMNB1"] = 4.05     # existing key: replaced
+```
+
+| What you want | How |
+|---|---|
+| look up a value | `d["LMNA"]` |
+| add or update | `d["IL6"] = 5.7` |
+| is this key there? | `"IL6" in d` → `True` / `False` |
+| look up, with a fallback | `d.get("IL1B", 0.0)` |
+| how many entries | `len(d)` |
+| loop over pairs | `for gene, value in d.items():` |
+
+Asking for a key that isn't there with `d["IL1B"]` stops your program with a **KeyError**. `d.get("IL1B", 0.0)` instead quietly gives back the fallback value (`0.0`) when the key is missing.
+
+Looping with `.items()` gives you each **key and value together**:
+
+```python
+for gene, value in expression.items():
+    print(f"{gene}: {value}")
+```
+
+> **In the lab:** a dictionary is a lookup table, like the sample sheet taped to the freezer: tube label → what's inside. Keys must be unique, so each gene (or tube) appears once.
+--- example
+tubes = {"A1": "HGPS fibroblasts", "A2": "control fibroblasts"}
+tubes["A3"] = "HGPS + lonafarnib"          # add a new tube
+print(tubes["A1"])
+print("A3" in tubes, "B1" in tubes)
+print(tubes.get("B1", "empty slot"))
+print(len(tubes), "tubes in the box")
+
+for label, contents in tubes.items():
+    print(f"{label} -> {contents}")
+--- task
+Your RNA-seq results (TPM) for three genes are: **LMNA 12.4**, **LMNB1 8.1**, **CDKN1A 3.2**.
+
+1. Create a dictionary called `expression` with those three genes and values.
+2. Add **IL6** with the value **5.7**.
+3. LMNB1 was copied wrongly; change it to **4.05**.
+4. IL1B was not measured. Use `.get()` to look it up with a fallback of `0.0`, and store the result in `il1b`.
+5. Loop over `expression.items()` and print one line per gene, like `LMNA: 12.4`.
+--- starter
+# 1. create the dictionary
+expression = {}
+
+# 2. add IL6
+
+# 3. fix LMNB1
+
+# 4. look up IL1B with a fallback of 0.0
+il1b = None
+
+# 5. print one line per gene
+
+--- check
+expected = {"LMNA": 12.4, "LMNB1": 4.05, "CDKN1A": 3.2, "IL6": 5.7}
+expr = ns.get("expression")
+if not isinstance(expr, dict):
+    fail("Create a dictionary called expression, using curly brackets { }.")
+for gene in ("LMNA", "LMNB1", "CDKN1A"):
+    if gene not in expr:
+        fail(f"{gene} is missing from expression. Keys are text, so write them in quotes, e.g. \"{gene}\" (case matters).")
+if "IL6" not in expr:
+    fail("Add IL6 with  expression[\"IL6\"] = 5.7")
+if abs(float(expr["LMNB1"]) - 4.05) > 1e-9:
+    fail(f"LMNB1 is still {expr['LMNB1']}. Assign the new value: expression[\"LMNB1\"] = 4.05")
+for gene, value in expected.items():
+    if not isinstance(expr[gene], (int, float)) or abs(expr[gene] - value) > 1e-9:
+        fail(f"{gene} should be {value} (a number, without quotes) but it is {expr[gene]!r}.")
+extra = [k for k in expr if k not in expected]
+if extra:
+    fail(f"expression has extra keys: {extra}. It should hold only LMNA, LMNB1, CDKN1A and IL6. (Did .get() add IL1B? It shouldn't: get only reads.)")
+if ns.get("il1b") is None:
+    fail("Set il1b using expression.get(\"IL1B\", 0.0).")
+if ns["il1b"] != 0.0:
+    fail(f"il1b should be the fallback value 0.0, but it is {ns['il1b']!r}.")
+lines = [l.strip() for l in out.splitlines()]
+for gene, value in expected.items():
+    if not any(gene in l and str(value) in l for l in lines):
+        fail(f"No printed line shows {gene} and {value}. Loop with  for gene, value in expression.items():  and print both.")
+ok("Four genes, one fix, one safe lookup. Dictionaries are the backbone of almost every lab tool: sample → result.")
+--- hint
+Create it in one go: `expression = {"LMNA": 12.4, "LMNB1": 8.1, "CDKN1A": 3.2}`. Then `expression["IL6"] = 5.7` adds a gene, and the same syntax with an existing key replaces its value.
+--- hint
+`il1b = expression.get("IL1B", 0.0)`. For the printing: `for gene, value in expression.items():` followed by an indented `print(f"{gene}: {value}")`.
+--- solution
+expression = {"LMNA": 12.4, "LMNB1": 8.1, "CDKN1A": 3.2}
+expression["IL6"] = 5.7
+expression["LMNB1"] = 4.05
+il1b = expression.get("IL1B", 0.0)
+
+for gene, value in expression.items():
+    print(f"{gene}: {value}")
+--- explain
+- `{"LMNA": 12.4, ...}` builds the dictionary; each key is a text label, each value a number.
+- `expression["IL6"] = 5.7` adds a key because IL6 wasn't there yet; the same line with `"LMNB1"` replaces the old value.
+- `.get("IL1B", 0.0)` returns `0.0` because IL1B is missing, without crashing and without adding it.
+- `.items()` hands the loop each gene and its value together.
+
+=== lesson dict_counting
+title: Counting with a dictionary
+minutes: 8
+--- text
+One of the most common jobs in data analysis is **counting**: how many of each base, each codon, each cell type, each mutation.
+
+A dictionary is perfect for this. The key is the thing you count, the value is how many you've seen so far:
+
+```python
+counts = {}
+for base in "GATTACA":
+    counts[base] = counts.get(base, 0) + 1
+print(counts)    # {'G': 1, 'A': 3, 'T': 2, 'C': 1}
+```
+
+Read the middle line slowly: *"look up how many of this base I have so far (0 if I've never seen it), add 1, and store it back."*
+
+Why `.get(base, 0)` and not `counts[base]`? The first time you meet a base it isn't in the dictionary yet, so `counts[base]` would crash with a KeyError. `.get` starts it at 0.
+
+The big advantage: you don't need to know in advance **what** you'll find. If a sequence contains an `N` (unknown base) it simply gets its own count.
+
+> **In the lab:** sequencers write `N` where they couldn't call a base. A counter that only expected A, C, G and T would miss them; this one doesn't.
+--- example
+cells = ["fibroblast", "HeLa", "fibroblast", "iPSC", "fibroblast", "HeLa"]
+counts = {}
+for cell in cells:
+    counts[cell] = counts.get(cell, 0) + 1
+
+print(counts)
+for cell, n in counts.items():
+    print(f"{cell}: {n}")
+--- task
+A short read from the sequencer is stored in `seq` (it contains some `N`s).
+
+1. Create an empty dictionary called `counts`.
+2. Loop over `seq` and count every character, using `counts.get(base, 0) + 1`.
+3. Print each base and its count, one per line, like `A: 7`.
+4. Calculate the GC content as a percentage of **all** characters, store it in `gc_percent` and print it.
+--- starter
+seq = "ATGGCGNNATTCGCGTAAGCTTGANCCAGGT"
+
+# 1-2. count every character
+counts = {}
+
+# 3. print the counts
+
+# 4. GC content in percent
+gc_percent = 0
+
+--- check
+seq = ns.get("seq", "")
+if seq != "ATGGCGNNATTCGCGTAAGCTTGANCCAGGT":
+    fail("Keep the sequence in seq exactly as given in the starter.")
+truth = {}
+for b in seq:
+    truth[b] = truth.get(b, 0) + 1
+counts = ns.get("counts")
+if not isinstance(counts, dict) or not counts:
+    fail("counts is still empty. Loop over seq with  for base in seq:  and update counts inside the loop.")
+if "N" not in counts:
+    fail("counts has no entry for N. Count every character, not only A, C, G and T.")
+for b, n in truth.items():
+    if counts.get(b) != n:
+        fail(f"counts['{b}'] should be {n} but is {counts.get(b)}. Is the counting line inside the loop (indented)?")
+if set(counts) != set(truth):
+    fail(f"counts has unexpected keys: {sorted(set(counts) - set(truth))}.")
+lines = [l.strip() for l in out.splitlines()]
+for b, n in truth.items():
+    if not any(l.startswith(b) and str(n) in l for l in lines):
+        fail(f"Print a line for each base, e.g.  {b}: {n}")
+gc = (truth["G"] + truth["C"]) * 100 / len(seq)
+g = ns.get("gc_percent")
+if not isinstance(g, (int, float)) or g == 0:
+    fail("Calculate gc_percent from counts['G'] and counts['C'].")
+if abs(g - gc) > 0.05:
+    if abs(g - gc / 100) < 0.001:
+        fail("That's a fraction. Multiply by 100 to get a percentage.")
+    fail(f"gc_percent is {g}, but it should be (G + C) × 100 / len(seq).")
+if f"{gc:.1f}" not in out and str(round(gc, 2)) not in out and str(gc) not in out:
+    fail("gc_percent is right — now print it.")
+ok(f"GC = {gc:.1f}%, counted without knowing in advance which letters would turn up. The same pattern counts codons, mutations or cell types.")
+--- hint
+Inside the loop: `counts[base] = counts.get(base, 0) + 1`. Then a second loop `for base, n in counts.items():` prints them.
+--- hint
+`gc_percent = (counts["G"] + counts["C"]) * 100 / len(seq)`
+--- solution
+seq = "ATGGCGNNATTCGCGTAAGCTTGANCCAGGT"
+
+counts = {}
+for base in seq:
+    counts[base] = counts.get(base, 0) + 1
+
+for base, n in counts.items():
+    print(f"{base}: {n}")
+
+gc_percent = (counts["G"] + counts["C"]) * 100 / len(seq)
+print(f"GC: {gc_percent:.1f}%")
+
+=== lesson codon_table
+title: The genetic code as a dictionary
+minutes: 10
+--- text
+The genetic code is a lookup table: **codon → amino acid**. That's exactly a dictionary:
+
+```python
+code = {"ATG": "M", "GCT": "A", "TGG": "W", "TAA": "*"}
+print(code["ATG"])     # M
+```
+
+(`*` is the usual symbol for a stop codon.)
+
+Typing all 64 codons by hand is tedious and error-prone, so the starter **builds** the standard table with three nested loops. The 64 amino-acid letters are written in a fixed order (T, C, A, G at each position), and the loops walk through the codons in that same order.
+
+To **translate**, step through the DNA three bases at a time with `range(0, len(dna) - 2, 3)`, slice out each codon and look it up:
+
+```python
+protein = ""
+for i in range(0, len(dna) - 2, 3):
+    codon = dna[i:i+3]
+    aa = code[codon]
+    protein = protein + aa
+```
+
+Ribosomes stop at a stop codon, and so should your code: when `aa == "*"`, use `break` to leave the loop **before** adding it.
+
+> **In the lab:** this is exactly what every ORF finder and translation tool does. Once the table is a dictionary, swapping in a non-standard genetic code (mitochondrial, or a recoded organism) means changing a few entries, not rewriting the program.
+--- example
+code = {"ATG": "M", "AAA": "K", "CAT": "H", "CAC": "H", "TAA": "*"}
+dna = "ATGAAACATCACTAA"
+
+for i in range(0, len(dna) - 2, 3):
+    codon = dna[i:i+3]
+    print(i, codon, code[codon])
+--- task
+The starter builds `codon_table`, the full standard genetic code.
+
+1. Translate `dna` into a string called `protein`, codon by codon, starting at position 0.
+2. Stop at the first stop codon (`*`), and **don't** include the `*` in `protein`.
+3. Print `protein`.
+--- starter
+# Build the standard genetic code: codon_table["ATG"] -> "M"
+bases = "TCAG"
+amino_acids = "FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG"
+codon_table = {}
+n = 0
+for b1 in bases:
+    for b2 in bases:
+        for b3 in bases:
+            codon_table[b1 + b2 + b3] = amino_acids[n]
+            n += 1
+
+print(len(codon_table), "codons;  ATG ->", codon_table["ATG"], "  TAA ->", codon_table["TAA"])
+
+dna = "ATGGCTACCGAACGCTGGAAGTAAGGCTTC"
+
+# translate dna into protein, stopping at the first stop codon
+protein = ""
+
+--- check
+table = ns.get("codon_table")
+if not isinstance(table, dict) or len(table) != 64 or table.get("ATG") != "M":
+    fail("Keep the starter code that builds codon_table; it should have 64 codons.")
+if ns.get("dna") != "ATGGCTACCGAACGCTGGAAGTAAGGCTTC":
+    fail("Keep dna exactly as given.")
+p = ns.get("protein")
+if not isinstance(p, str) or not p:
+    fail("protein is still empty. Loop with  for i in range(0, len(dna) - 2, 3):  and add codon_table[dna[i:i+3]] to protein.")
+if p == "MATERWK*":
+    fail("Nearly! Stop before adding the stop codon: check  if aa == \"*\":  and break before protein = protein + aa.")
+if p == "MATERWK*GF":
+    fail("The translation kept going through the stop codon. When aa == \"*\", use break to leave the loop (before adding it).")
+if p == "MATERWKGF" or p.startswith("MATERWK") and len(p) > 7:
+    fail("You translated past the stop codon. Use break when you reach \"*\".")
+if p != "MATERWK":
+    fail(f"protein is {p!r}. Step through dna in steps of 3 from position 0, slicing dna[i:i+3] each time.")
+if "MATERWK" not in out:
+    fail("protein is right — now print it.")
+ok("MATERWK. You've written a translator; the same loop runs inside every ORF finder.")
+--- hint
+Inside the loop: `codon = dna[i:i+3]`, then `aa = codon_table[codon]`.
+--- hint
+Before adding `aa` to `protein`, check `if aa == "*":` and `break`.
+--- solution
+bases = "TCAG"
+amino_acids = "FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG"
+codon_table = {}
+n = 0
+for b1 in bases:
+    for b2 in bases:
+        for b3 in bases:
+            codon_table[b1 + b2 + b3] = amino_acids[n]
+            n += 1
+
+dna = "ATGGCTACCGAACGCTGGAAGTAAGGCTTC"
+
+protein = ""
+for i in range(0, len(dna) - 2, 3):
+    aa = codon_table[dna[i:i+3]]
+    if aa == "*":
+        break
+    protein = protein + aa
+
+print(protein)
+--- explain
+- `range(0, len(dna) - 2, 3)` gives 0, 3, 6, … so each `dna[i:i+3]` is one codon in frame 1. The `- 2` makes sure there are always three bases left.
+- The lookup `codon_table[...]` turns the codon into one amino-acid letter.
+- The check for `"*"` comes **before** adding, so the stop isn't included, and `break` ignores the bases after it (GGC TTC).
+
+=== lesson dict_sorting
+title: Sorting by value: what's on top?
+minutes: 9
+--- text
+Dictionaries keep keys in the order you added them. Often you want a ranking instead: the **most expressed genes**, the **most common codons**.
+
+`sorted()` sorts anything you can loop over. On a dictionary's `.items()` you get a list of (key, value) pairs, sorted by the **key** (alphabetically):
+
+```python
+tpm = {"LMNA": 12.4, "GAPDH": 250.0, "IL6": 5.7}
+print(sorted(tpm.items()))
+# [('GAPDH', 250.0), ('IL6', 5.7), ('LMNA', 12.4)]
+```
+
+To sort by the **value** instead, tell `sorted` what to look at with `key=`. A **lambda** is a tiny one-line function written in place:
+
+```python
+ranked = sorted(tpm.items(), key=lambda pair: pair[1], reverse=True)
+```
+
+Read it as: *"for each pair, sort by `pair[1]` (the value, since `pair[0]` is the name), biggest first."* `reverse=True` means high to low.
+
+The result is a list, so slicing works as usual: `ranked[:3]` is the top three. You can unpack each pair straight away in a loop:
+
+```python
+for gene, value in ranked[:3]:
+    print(gene, value)
+```
+
+> **In the lab:** "give me the top 20 hits" is the most common question after any screen, proteomics run or RNA-seq experiment. This is how you answer it.
+--- example
+codon_counts = {"GCC": 41, "GCT": 28, "GCA": 22, "GCG": 11}
+
+print(sorted(codon_counts.items()))                     # by codon name
+by_count = sorted(codon_counts.items(), key=lambda pair: pair[1], reverse=True)
+print(by_count)
+
+for codon, n in by_count[:2]:
+    print(f"{codon} used {n} times")
+--- task
+`tpm` holds expression values for eight genes in senescent fibroblasts.
+
+1. Make `ranked`: a list of (gene, value) pairs sorted by value, **highest first**.
+2. Make `top3`: a **list of the gene names** (just the names) of the three most expressed genes.
+3. Print the three genes with their values, one per line.
+--- starter
+tpm = {"LMNA": 412.0, "LMNB1": 18.5, "CDKN1A": 96.3, "IL6": 230.7,
+       "GAPDH": 1830.0, "TP53": 61.2, "SERPINE1": 377.9, "MKI67": 4.1}
+
+# 1. sort the pairs by value, highest first
+ranked = []
+
+# 2. names of the top three genes
+top3 = []
+
+# 3. print them
+
+--- check
+tpm = ns.get("tpm", {})
+truth = sorted(tpm.items(), key=lambda p: p[1], reverse=True)
+r = ns.get("ranked")
+if not isinstance(r, list) or not r:
+    fail("Make ranked with  sorted(tpm.items(), key=lambda pair: pair[1], reverse=True)")
+if list(r) == sorted(tpm.items()):
+    fail("ranked is sorted alphabetically by gene name. Add key=lambda pair: pair[1] to sort by the value.")
+if list(r) == truth[::-1]:
+    fail("ranked is lowest first. Add reverse=True.")
+if [tuple(x) for x in r] != truth:
+    fail("ranked isn't in the right order. It should hold every (gene, value) pair, highest value first.")
+t = ns.get("top3")
+if not isinstance(t, list) or len(t) != 3:
+    fail("top3 should be a list of exactly three gene names.")
+if [tuple(x) if not isinstance(x, str) else x for x in t] == truth[:3]:
+    fail("top3 holds the (gene, value) pairs. Keep only the names: loop over ranked[:3] and append each gene.")
+if t != [g for g, v in truth[:3]]:
+    fail(f"top3 is {t}; it should be the three highest-expressed gene names, highest first.")
+lines = out.splitlines()
+for g, v in truth[:3]:
+    if not any(g in l and (str(v) in l or str(int(v)) in l) for l in lines):
+        fail(f"Print each top gene with its value, e.g. a line with {g} and {v}.")
+ok("GAPDH, LMNA, SERPINE1. GAPDH on top is a reminder why housekeeping genes are used as references, and SERPINE1 (PAI-1) is a classic senescence marker.")
+--- hint
+`ranked = sorted(tpm.items(), key=lambda pair: pair[1], reverse=True)`
+--- hint
+For `top3`: start with `top3 = []`, then `for gene, value in ranked[:3]:` and `top3.append(gene)`. Print inside the same loop.
+--- solution
+tpm = {"LMNA": 412.0, "LMNB1": 18.5, "CDKN1A": 96.3, "IL6": 230.7,
+       "GAPDH": 1830.0, "TP53": 61.2, "SERPINE1": 377.9, "MKI67": 4.1}
+
+ranked = sorted(tpm.items(), key=lambda pair: pair[1], reverse=True)
+
+top3 = []
+for gene, value in ranked[:3]:
+    top3.append(gene)
+    print(f"{gene}: {value}")
+--- explain
+- `tpm.items()` gives pairs like `("LMNA", 412.0)`; `pair[1]` is the number.
+- `reverse=True` flips the order so the biggest comes first.
+- `ranked[:3]` takes the first three pairs; unpacking them as `gene, value` lets you keep just the name.

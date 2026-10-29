@@ -1,0 +1,466 @@
+@chapter Lists and loops
+@blurb Keep many values together in lists, and let loops repeat the work for every sample, base or codon.
+@icon loop
+
+=== lesson lists
+title: Lists: many values in one variable
+minutes: 8
+--- text
+Real experiments have replicates, plates and sample sheets, not single numbers. A **list** holds many values in one variable, in order, inside square brackets:
+
+```python
+cts = [18.2, 18.5, 18.1]                 # three technical replicates
+samples = ["control", "HGPS", "HGPS_lonafarnib"]
+```
+
+Lists work a lot like strings: indexing and slicing are the same.
+
+```python
+print(cts[0])      # 18.2  (first item)
+print(cts[-1])     # 18.1  (last item)
+print(cts[:2])     # [18.2, 18.5]
+```
+
+The most useful tools:
+
+| Code | What it does |
+|---|---|
+| `len(cts)` | how many items |
+| `cts.append(18.4)` | add an item to the end (this *changes* the list) |
+| `sum(cts)`, `min(cts)`, `max(cts)` | total, smallest, largest |
+| `sorted(cts)` | a new, sorted copy |
+| `cts.sort()` | sort the list itself |
+| `samples.index("HGPS")` | the position of an item |
+| `[]` | an empty list, ready to be filled |
+
+The mean is simply `sum(cts) / len(cts)`.
+
+> **In the lab:** unlike string methods, `append` and `sort` change the list in place and give back nothing. Writing `cts = cts.append(18.4)` is a classic mistake: `cts` becomes `None`.
+--- example
+samples = ["control", "HGPS"]
+samples.append("HGPS_lonafarnib")
+print(samples, len(samples))
+print("HGPS is at index", samples.index("HGPS"))
+
+od = [0.52, 0.48, 0.61, 0.55]
+print("mean OD:", sum(od) / len(od))
+print("range:", min(od), "to", max(od))
+print("sorted:", sorted(od))
+print("original is unchanged:", od)
+--- task
+You measured GAPDH in triplicate by qPCR, then found a fourth replicate in your notebook.
+
+1. Start with `cts = [18.2, 18.5, 18.1]` and **append** the fourth value, `18.4`.
+2. Store the number of replicates in `n`.
+3. Store the mean Ct, rounded to 2 decimals, in `mean_ct`.
+4. Store the spread (largest minus smallest), rounded to 2 decimals, in `spread`.
+5. Print the mean and the spread.
+--- starter
+cts = [18.2, 18.5, 18.1]
+
+--- check
+if "cts" not in ns:
+    fail("Keep the list in a variable called cts.")
+c = ns["cts"]
+if c is None:
+    fail("cts became None. append() changes the list itself, so write cts.append(18.4) on its own line, not cts = cts.append(...).")
+if not isinstance(c, list):
+    fail("cts should be a list.")
+if len(c) == 3:
+    fail("cts still has 3 values. Add the fourth with cts.append(18.4).")
+if len(c) != 4 or 18.4 not in c:
+    fail("cts should hold exactly the four Ct values, including 18.4 (append it once).")
+if ns.get("n") != 4:
+    fail("n should be the number of replicates: len(cts).")
+if "mean_ct" not in ns:
+    fail("Create a variable called mean_ct.")
+if abs(ns["mean_ct"] - 18.3) > 0.006:
+    fail(f"mean_ct is {ns['mean_ct']}. The mean is sum(cts) / len(cts), and the list must include 18.4 first.")
+if "spread" not in ns:
+    fail("Create a variable called spread.")
+if abs(ns["spread"] - 0.4) > 0.006:
+    fail(f"spread is {ns['spread']}. Use max(cts) - min(cts), then round(..., 2).")
+if "18.3" not in out or "0.4" not in out:
+    fail("Both values are right. Now print them.")
+ok("Mean Ct 18.3 with a spread of 0.4 cycles: tight technical replicates. Lists are where all your data will live.")
+--- hint
+`cts.append(18.4)` on its own line. Then `n = len(cts)`.
+--- hint
+`mean_ct = round(sum(cts) / len(cts), 2)` and `spread = round(max(cts) - min(cts), 2)`.
+--- solution
+cts = [18.2, 18.5, 18.1]
+cts.append(18.4)
+n = len(cts)
+mean_ct = round(sum(cts) / n, 2)
+spread = round(max(cts) - min(cts), 2)
+print("mean Ct:", mean_ct)
+print("spread:", spread)
+
+=== lesson for_loops
+title: for loops: do it for every item
+minutes: 9
+--- text
+A **for loop** runs the same lines once for every item in a list:
+
+```python
+samples = ["control", "HGPS", "HGPS_lonafarnib"]
+for name in samples:
+    print("Processing", name)
+print("Done")
+```
+
+How to read it: *for each item in `samples`, call it `name` and run the indented lines.*
+
+- The line ends with a **colon** `:`.
+- The lines to repeat are **indented** (4 spaces; the editor does this when you press Tab).
+- The first line that is *not* indented runs once, after the loop has finished.
+
+A loop over a **string** goes through it letter by letter:
+
+```python
+for base in "ATG":
+    print(base)
+```
+
+The most important loop pattern is the **accumulator**: start a total at 0 *before* the loop and add to it *inside*:
+
+```python
+total = 0
+for v in [10, 25, 15]:
+    total = total + v
+print(total)      # 50
+```
+
+> **In the lab:** this is how you'll process every well of a plate, every read in a FASTQ file or every gene in a table: the loop body describes what to do with *one*, and the loop does it for *all*.
+--- example
+samples = ["control", "HGPS", "HGPS_lonafarnib"]
+for name in samples:
+    print(f"Fixing and staining {name}")
+print("All samples done")
+
+for base in "ATGC":
+    print(base, "pairs with", base.translate(str.maketrans("ACGT", "TGCA")))
+
+total_ul = 0
+for vol in [12.5, 7.5, 30.0]:
+    total_ul = total_ul + vol
+print("total volume:", total_ul, "µL")
+--- task
+You did three plasmid minipreps. The NanoDrop gave these concentrations in ng/µL, and each was eluted in **50 µL**:
+
+```python
+concs = [152.0, 98.5, 210.3]
+```
+
+1. Create `total_ug = 0` before the loop.
+2. Loop over `concs`. For each one, calculate the yield in µg (`conc * 50 / 1000`) and print a line such as `152.0 ng/µL -> 7.6 µg`.
+3. Inside the loop, add each yield to `total_ug`.
+4. After the loop, print the total.
+--- starter
+concs = [152.0, 98.5, 210.3]
+total_ug = 0
+
+--- check
+if "total_ug" not in ns:
+    fail("Create a variable called total_ug and set it to 0 before the loop.")
+t = ns["total_ug"]
+expected = (152.0 + 98.5 + 210.3) * 50 / 1000
+if abs(t) < 1e-9:
+    fail("total_ug is still 0. Inside the loop, add each yield: total_ug = total_ug + ...")
+if abs(t - 210.3 * 50 / 1000) < 1e-6:
+    fail("total_ug only holds the last yield. Add to it (total_ug = total_ug + y), don't overwrite it, and set it to 0 before the loop, not inside.")
+if abs(t - (152.0 + 98.5 + 210.3)) < 1e-6:
+    fail("total_ug is the sum of the concentrations. Convert each one to µg first: conc * 50 / 1000.")
+if abs(t - expected) > 0.01:
+    fail(f"total_ug is {t}, which isn't the total yield yet. Each yield is conc * 50 / 1000 µg.")
+lines = [l for l in out.splitlines() if l.strip()]
+if len(lines) < 4:
+    fail("Print one line per miniprep inside the loop, plus the total after the loop (4 lines in all).")
+for y in ("7.6", "4.9", "10.5"):
+    if not any(y in l for l in lines):
+        fail(f"I can't find the yield {y} µg in your output. Print each yield inside the loop (try {{y:.1f}} in an f-string).")
+if not any("23.0" in l for l in lines):
+    fail("Print the total after the loop, e.g. with {total_ug:.1f}.")
+ok("23.0 µg of plasmid in total. The accumulator pattern (start at 0, add inside the loop) is everywhere in data analysis.")
+--- hint
+```python
+for conc in concs:
+    y = conc * 50 / 1000
+    print(f"{conc} ng/µL -> {y:.1f} µg")
+```
+--- hint
+Inside the loop add `total_ug = total_ug + y`. After the loop (not indented), print `total_ug`.
+--- solution
+concs = [152.0, 98.5, 210.3]
+total_ug = 0
+for conc in concs:
+    y = conc * 50 / 1000
+    print(f"{conc} ng/µL -> {y:.1f} µg")
+    total_ug = total_ug + y
+print(f"Total: {total_ug:.1f} µg")
+
+=== lesson range_codons
+title: range() and reading codons
+minutes: 9
+--- text
+Sometimes you want to loop over **numbers** rather than items. `range` makes them:
+
+| Code | Numbers produced |
+|---|---|
+| `range(5)` | 0, 1, 2, 3, 4 |
+| `range(1, 6)` | 1, 2, 3, 4, 5 |
+| `range(0, 12, 3)` | 0, 3, 6, 9 (the third number is the step) |
+
+Like slices, `range` **stops before** the end number.
+
+```python
+for i in range(1, 4):
+    print("Plate", i)
+```
+
+Combine `range` with slicing and you can walk along a sequence **one codon at a time**: start at 0, jump by 3, and take three bases from each starting point.
+
+```python
+seq = "ATGGAGACC"
+for i in range(0, len(seq), 3):
+    print(i, seq[i:i+3])
+# 0 ATG
+# 3 GAG
+# 6 ACC
+```
+
+To **collect** results instead of just printing them, start with an empty list and `append` inside the loop:
+
+```python
+codons = []
+for i in range(0, len(seq), 3):
+    codons.append(seq[i:i+3])
+```
+
+> **In the lab:** changing the starting number to 1 or 2 gives you the other two reading frames, which is exactly how ORF finders scan a sequence.
+--- example
+for i in range(1, 4):
+    print(f"Plate {i}: seed 96 wells")
+
+seq = "ATGGAGACCCCGTCC"
+for i in range(0, len(seq), 3):
+    print(f"index {i}: {seq[i:i+3]}")
+
+frame2 = []
+for i in range(1, len(seq) - 2, 3):
+    frame2.append(seq[i:i+3])
+print("frame 2:", frame2)
+--- task
+```python
+seq = "ATGGAGACCCCGTCCCAGCGGTAA"
+```
+
+1. Create an empty list called `codons`.
+2. Use a `for` loop with `range` to append every codon of `seq` (reading frame 1, starting at index 0) to `codons`.
+3. Store the number of codons in `n_codons`.
+4. Print `codons` and `n_codons`.
+--- starter
+seq = "ATGGAGACCCCGTCCCAGCGGTAA"
+codons = []
+
+--- check
+seq = "ATGGAGACCCCGTCCCAGCGGTAA"
+good = [seq[i:i+3] for i in range(0, len(seq), 3)]
+if "codons" not in ns or not isinstance(ns["codons"], list):
+    fail("Create a list called codons (start with codons = []).")
+c = ns["codons"]
+if len(c) == 0:
+    fail("codons is still empty. Inside the loop, use codons.append(seq[i:i+3]).")
+if len(c) > 8 and c[:2] == ["ATG", "TGG"]:
+    fail("Your codons overlap: range needs a step of 3, i.e. range(0, len(seq), 3).")
+if c and all(len(x) == 1 for x in c):
+    fail("codons holds single bases. Take three at a time with the slice seq[i:i+3].")
+if c != good:
+    fail(f"codons should be {len(good)} codons starting with ATG, GAG, ACC... Check your range and your slice.")
+if ns.get("n_codons") != 8:
+    fail("n_codons should be the length of the codons list.")
+if "ATG" not in out or "8" not in out:
+    fail("Both are right. Now print codons and n_codons.")
+ok("8 codons, from ATG to the TAA stop. Stepping through a sequence in threes is the heart of every translation tool.")
+--- hint
+`for i in range(0, len(seq), 3):` gives i = 0, 3, 6, ...
+--- hint
+Inside the loop: `codons.append(seq[i:i+3])`. After the loop: `n_codons = len(codons)`.
+--- solution
+seq = "ATGGAGACCCCGTCCCAGCGGTAA"
+codons = []
+for i in range(0, len(seq), 3):
+    codons.append(seq[i:i+3])
+n_codons = len(codons)
+print(codons)
+print(n_codons)
+
+=== lesson comprehensions
+title: List comprehensions: transform a whole list
+minutes: 8
+--- text
+"Make a new list by doing something to every item" is so common that Python has a one-line form for it, the **list comprehension**:
+
+```python
+volumes_ml = [0.5, 1.25, 2.0]
+volumes_ul = [v * 1000 for v in volumes_ml]
+print(volumes_ul)    # [500.0, 1250.0, 2000.0]
+```
+
+Read it as: *a list of `v * 1000`, for each `v` in `volumes_ml`.* It does exactly the same as:
+
+```python
+volumes_ul = []
+for v in volumes_ml:
+    volumes_ul.append(v * 1000)
+```
+
+You can use any expression on the left, including functions and methods:
+
+```python
+names = [" hgps ", "Control", "LONAFARNIB"]
+clean = [n.strip().lower() for n in names]
+rounded = [round(x, 2) for x in [0.12345, 0.6789]]
+```
+
+> **In the lab:** blank subtraction is a one-liner: `[od - blank for od in readings]`. Same for converting Ct values, normalising to a reference, or turning every sample name into a tidy label.
+--- example
+readings = [0.612, 0.587, 0.645]
+blank = 0.045
+corrected = [round(od - blank, 3) for od in readings]
+print("corrected:", corrected)
+
+names = [" hgps ", "Control", "LONAFARNIB"]
+print([n.strip().lower() for n in names])
+
+seq = "ATGGAGACC"
+print([seq[i:i+3] for i in range(0, len(seq), 3)])
+--- task
+A Bradford plate gave these absorbance readings at 595 nm, and the buffer-only blank read `0.045`:
+
+```python
+readings = [0.612, 0.587, 0.645, 0.701]
+blank = 0.045
+volumes_ml = [0.25, 1.5, 0.05]
+```
+
+1. Make `corrected`: every reading minus the blank, using a list comprehension.
+2. Make `volumes_ul`: the volumes converted from mL to µL, also with a list comprehension.
+3. Print both lists.
+--- starter
+readings = [0.612, 0.587, 0.645, 0.701]
+blank = 0.045
+volumes_ml = [0.25, 1.5, 0.05]
+
+--- check
+readings = [0.612, 0.587, 0.645, 0.701]
+for name in ("corrected", "volumes_ul"):
+    if name not in ns:
+        fail(f"Create a list called {name}.")
+    if not isinstance(ns[name], list):
+        fail(f"{name} should be a list. Put the comprehension inside square brackets [ ].")
+c = ns["corrected"]
+if len(c) != 4:
+    fail("corrected should have one value per reading (4 values).")
+if all(abs(a - (r + 0.045)) < 1e-6 for a, r in zip(c, readings)):
+    fail("You added the blank. Subtract it instead: od - blank.")
+if not all(abs(a - (r - 0.045)) < 0.0006 for a, r in zip(c, readings)):
+    fail("corrected isn't quite right. Each value should be reading - blank.")
+v = ns["volumes_ul"]
+good_v = [250, 1500, 50]
+if len(v) != 3:
+    fail("volumes_ul should have one value per volume (3 values).")
+if all(abs(a - g / 1e6) < 1e-9 for a, g in zip(v, good_v)):
+    fail("You divided by 1000. To go from mL to µL, multiply by 1000.")
+if not all(abs(a - g) < 1e-6 for a, g in zip(v, good_v)):
+    fail("volumes_ul isn't right yet. 1 mL is 1000 µL, so multiply each volume by 1000.")
+if "1500" not in out:
+    fail("Both lists are right. Now print them.")
+ok("Blank-subtracted and converted in two lines. Comprehensions keep data clean-up short and readable.")
+--- hint
+`corrected = [od - blank for od in readings]`
+--- hint
+Same shape for the volumes: `[v * 1000 for v in volumes_ml]`.
+--- solution
+readings = [0.612, 0.587, 0.645, 0.701]
+blank = 0.045
+volumes_ml = [0.25, 1.5, 0.05]
+
+corrected = [round(od - blank, 3) for od in readings]
+volumes_ul = [v * 1000 for v in volumes_ml]
+print(corrected)
+print(volumes_ul)
+
+=== lesson while_loops
+title: while loops: repeat until done
+minutes: 8
+--- text
+A `for` loop runs a known number of times. A **while loop** keeps going *as long as a condition is true*, which is what you want when you don't know in advance how many rounds it will take.
+
+```python
+cells = 1000
+hours = 0
+while cells < 1000000:
+    cells = cells * 2      # one doubling
+    hours = hours + 24     # every 24 hours
+print(hours, "hours to reach a million cells")
+```
+
+How it works: Python checks `cells < 1000000`. If it is true, it runs the indented lines, then checks again. When it becomes false, the loop ends and the program continues below it.
+
+The comparison signs you can use: `<`, `<=`, `>`, `>=`, `==` (equal) and `!=` (not equal). More on these in the next chapter.
+
+**Make sure something inside the loop moves you towards the end.** If `cells` never grew, the condition would stay true forever. (If that happens here, press **Stop**.)
+
+> **In the lab:** "how many passages until we reach enough cells?", "how many 1:10 dilutions until the count is plateable?" and "how many PCR cycles until we reach a threshold?" are all while-loop questions.
+--- example
+cells = 1000
+days = 0
+while cells < 1000000:
+    cells = cells * 2
+    days = days + 1
+    print(f"day {days}: {cells:,} cells")
+print(f"{days} doublings to pass a million cells")
+--- task
+A bacterial culture has **5,000,000 cells/mL**. You do serial **1:10 dilutions** until the concentration is **below 100 cells/mL**, so you can plate it.
+
+1. Start with `cells = 5000000` and `dilutions = 0`.
+2. Write a `while` loop that, as long as `cells` is 100 or more, divides `cells` by 10 and adds 1 to `dilutions`.
+3. Print how many dilutions you needed and the final concentration.
+--- starter
+cells = 5000000
+dilutions = 0
+
+# while ...:
+
+--- check
+if "cells" not in ns or "dilutions" not in ns:
+    fail("Keep the variables cells and dilutions.")
+d = ns["dilutions"]
+c = ns["cells"]
+if d == 0:
+    fail("dilutions is still 0. Inside the while loop, add 1 to it each time.")
+if abs(c - 5000000) < 1e-6:
+    fail("cells never changed. Inside the loop, divide it by 10: cells = cells / 10.")
+if d == 4 and abs(c - 500) < 1e-6:
+    fail("You stopped at 500 cells/mL, which is still too many. The loop should continue while cells >= 100.")
+if d == 6:
+    fail("One dilution too many: 50 cells/mL is already below 100. Check the condition of your while loop.")
+if d != 5 or abs(c - 50) > 1e-6:
+    fail(f"dilutions is {d} and cells is {c}. Loop while cells >= 100; each round divides by 10 and adds 1 to dilutions.")
+if "5" not in out or "50" not in out:
+    fail("The numbers are right. Now print dilutions and cells after the loop.")
+ok("5 dilutions, ending at 50 cells/mL: perfect for plating. You let the data decide when to stop.")
+--- hint
+The loop line is `while cells >= 100:` (don't forget the colon).
+--- hint
+Inside the loop: `cells = cells / 10` and `dilutions = dilutions + 1`, both indented.
+--- solution
+cells = 5000000
+dilutions = 0
+
+while cells >= 100:
+    cells = cells / 10
+    dilutions = dilutions + 1
+
+print(f"{dilutions} dilutions, final concentration {cells} cells/mL")

@@ -1,0 +1,486 @@
+@chapter Errors and debugging
+@blurb Read tracebacks calmly, hunt down silent bugs, survive messy data with try/except and raise clear errors of your own.
+@icon bug
+
+=== lesson traceback
+title: Reading a traceback
+minutes: 8
+--- text
+Every programmer, every day, writes code that crashes. An error is not a failure: it is Python telling you **exactly** what went wrong and **where**. The message is called a **traceback**.
+
+```python
+readings = [0.512, 0.498, 0.530]
+mean_od = sum(reading) / 3
+```
+
+Running this shows:
+
+```text
+Traceback (most recent call last):
+  File "<your code>", line 2, in <module>
+NameError: name 'reading' is not defined. Did you mean: 'readings'?
+```
+
+Read it **from the bottom up**:
+
+1. **The last line** is the most important: the *type* of error (`NameError`) and a message. Here Python even guesses the fix.
+2. **The line number** above it (`line 2`) tells you where Python was when it gave up. The app also highlights that line in the editor.
+3. Everything above is the trail of how Python got there (useful later, when functions call functions).
+
+The errors you will meet most often:
+
+| Error | Typical cause | Lab example |
+|---|---|---|
+| `NameError` | typo, or using a variable before creating it | `reading` instead of `readings` |
+| `TypeError` | mixing types, e.g. text + number | `"OD: " + 0.5` |
+| `IndexError` | a position that doesn't exist | `wells[96]` in a list of 96 wells |
+| `KeyError` | a missing dictionary key | `samples["Ctrl"]` when the key is `"ctrl"` |
+| `ValueError` | right type, wrong value | `float("n/a")` |
+| `SyntaxError` | Python can't read the line | a missing `:` or `)` |
+
+> **In the lab:** treat a traceback like a failed gel. Don't panic and redo everything; read what the result is telling you, fix one thing, run again.
+
+Python stops at the **first** error. So fixing a bug and running again may reveal the next one further down. That's normal: fix, run, repeat.
+--- example
+plate = ["A1", "A2", "A3"]
+print("First well:", plate[0])
+print("Last well:", plate[-1])
+print("Number of wells:", len(plate))
+
+# Now break it on purpose: remove the # from the next line and press Run.
+# Read the traceback from the bottom up: error type, message, line number.
+# print("Fourth well:", plate[3])
+--- task
+The starter is a short script with **three classic bugs**. Run it, read the traceback, fix the bug it points to, and run again until the script works.
+
+When it is fixed it should print exactly these two lines:
+
+`Mean OD600: 0.512`
+
+`Last reading: 0.508`
+
+Keep the variable names `mean_od` and `last`.
+--- starter
+readings = [0.512, 0.498, 0.530, 0.508]
+
+total = 0
+for r in readings:
+    total = total + r
+
+mean_od = total / len(reading)
+print("Mean OD600: " + round(mean_od, 3))
+
+last = readings[len(readings)]
+print(f"Last reading: {last}")
+--- check
+if "mean_od" not in ns or "last" not in ns:
+    fail("Keep the variables mean_od and last: fix the lines rather than deleting them.")
+if not isinstance(ns["mean_od"], (int, float)) or abs(ns["mean_od"] - 0.512) > 1e-6:
+    fail(f"mean_od is {ns['mean_od']!r}. It should be the total divided by the number of readings.")
+if ns["last"] != 0.508:
+    fail(f"last is {ns['last']!r}, but the last reading is 0.508. Remember: the last position is len(readings) - 1, or simply -1.")
+lines = [l.strip() for l in out.splitlines() if l.strip()]
+mean_line = [l for l in lines if l.startswith("Mean OD600:")]
+if not mean_line:
+    fail("Print a line that starts with  Mean OD600:  followed by the mean.")
+try:
+    shown = float(mean_line[0].split(":")[1])
+except ValueError:
+    fail(f"Your mean line reads  {mean_line[0]}  — after the colon there should be just the number.")
+if abs(shown - 0.512) > 0.0005:
+    fail(f"The printed mean is {shown}; it should be 0.512.")
+if not any(l.startswith("Last reading:") and "0.508" in l for l in lines):
+    fail("Print the line  Last reading: 0.508")
+ok("All three bugs squashed. NameError, TypeError and IndexError cover a huge share of real-life bugs, and now you can read them.")
+--- hint
+Fix one error at a time. The first traceback is a `NameError` on line 7: compare the name there with the name on line 1.
+--- hint
+The `TypeError` says you can't add text (`str`) and a number. Either wrap the number in `str(...)` or use an f-string: `f"Mean OD600: {mean_od:.3f}"`.
+--- hint
+In a list of 4 items the positions are 0, 1, 2 and 3. `len(readings)` is 4, which doesn't exist. Use `readings[-1]` for the last item.
+--- solution
+readings = [0.512, 0.498, 0.530, 0.508]
+
+total = 0
+for r in readings:
+    total = total + r
+
+mean_od = total / len(readings)
+print(f"Mean OD600: {mean_od:.3f}")
+
+last = readings[-1]
+print(f"Last reading: {last}")
+--- explain
+- **Bug 1, `NameError`:** `reading` was a typo for `readings`. Python's "Did you mean" suggestion pointed straight at it.
+- **Bug 2, `TypeError`:** `"text" + number` is not allowed. An f-string converts the number for you, and `:.3f` rounds it to 3 decimals.
+- **Bug 3, `IndexError`:** a list of 4 has positions 0–3. `readings[-1]` always means "the last one", whatever the length.
+
+=== lesson debug_print
+title: Silent bugs: print() and type() are your microscope
+minutes: 10
+--- text
+The worst bugs don't crash. The program runs happily and gives a **wrong answer**. To find these, you need to look inside the program while it runs, just as you'd look at cells under the microscope instead of guessing.
+
+Your two best tools:
+
+- `print()` inside a loop or function, to watch values change step by step.
+- `type(x)` and `repr(x)`, to see what a value **really** is.
+
+`repr()` is especially useful for data read from files, because it shows hidden characters:
+
+```python
+value = "0.512\n"
+print(value)         # looks like 0.512
+print(repr(value))   # shows '0.512\n' -> there's a newline stuck on the end
+print(type(value))   # <class 'str'> -> it's text, not a number!
+```
+
+A classic silent bug: comparing numbers that are secretly **text**. Text is compared letter by letter, like in a dictionary, so `"9.8"` comes *after* `"10.2"` (because `"9"` comes after `"1"`):
+
+```python
+print(max(["9.8", "10.2"]))   # 9.8  -> wrong!
+print(max([9.8, 10.2]))       # 10.2 -> right
+```
+
+A debugging print can carry a label so you know which print you're reading:
+
+```python
+for v in values:
+    total = total + v
+    print("DEBUG v =", v, "total =", total)
+```
+
+When the bug is fixed, delete the debug prints (or turn them into comments).
+
+> **In the lab:** this is the equivalent of including controls. If you don't know where a pipeline goes wrong, check its intermediate results one step at a time.
+--- example
+cts = ["24.1", "23.8", "24.4"]          # Ct values, read from a file as text
+
+print(type(cts[0]), repr(cts[0]))
+
+# a silent bug: text sorts alphabetically, not numerically
+print("max as text:  ", max(["9.8", "10.2", "9.95"]))
+print("max as number:", max([float(x) for x in ["9.8", "10.2", "9.95"]]))
+
+total = 0
+for c in cts:
+    total = total + float(c)
+    print("DEBUG c =", c, "running total =", round(total, 2))
+print("mean Ct:", round(total / len(cts), 2))
+--- task
+The two functions in the starter run without any error but give **wrong answers**. Both receive Ct values as a list of **text** values, exactly as they would come out of a file.
+
+1. Run the starter and compare the printed results with what you'd expect by eye.
+2. Add `print()` / `type()` / `repr()` lines to find out what goes wrong.
+3. Fix `mean_ct(values)` so it returns the real mean as a number.
+4. Fix `highest(values)` so it returns the highest value **as a number** (a `float`).
+5. Remove or comment out your debug prints when you're done.
+--- starter
+def mean_ct(values):
+    for v in values:
+        total = 0
+        total = total + float(v)
+    return total / len(values)
+
+
+def highest(values):
+    return max(values)
+
+
+cts = ["9.8", "10.2", "9.95"]
+print("mean:", mean_ct(cts))       # should be about 9.98
+print("highest:", highest(cts))    # should be 10.2
+--- check
+for name in ("mean_ct", "highest"):
+    if not callable(ns.get(name)):
+        fail(f"Keep the function {name}(values) — fix it rather than removing it.")
+tests = [["9.8", "10.2", "9.95"], ["24.1", "23.8", "24.4"], ["30.0"], ["8.5", "12.25", "11.0", "9.75"]]
+for t in tests:
+    expected = sum(float(x) for x in t) / len(t)
+    try:
+        got = ns["mean_ct"](list(t))
+    except Exception as e:
+        fail(f"mean_ct({t}) raised {type(e).__name__}: {e}")
+    if not isinstance(got, (int, float)):
+        fail(f"mean_ct({t}) returned {got!r}, which is a {type(got).__name__}. It should return a number.")
+    if abs(got - expected) > 1e-9:
+        if abs(got - float(t[-1]) / len(t)) < 1e-9:
+            fail(f"mean_ct({t}) returned {got:.3f}: only the last value is being counted. Print total inside the loop and watch what happens to it each time round.")
+        fail(f"mean_ct({t}) returned {got}, but the mean is {expected:.3f}.")
+for t in tests:
+    expected = max(float(x) for x in t)
+    try:
+        got = ns["highest"](list(t))
+    except Exception as e:
+        fail(f"highest({t}) raised {type(e).__name__}: {e}")
+    if isinstance(got, str):
+        fail(f"highest({t}) returned the text {got!r}. Text is compared letter by letter, so convert each value to a float first.")
+    if not isinstance(got, (int, float)) or abs(got - expected) > 1e-9:
+        fail(f"highest({t}) returned {got!r}, but the highest value is {expected}.")
+ok("Both silent bugs found. Checking types and printing intermediate values will save you hours on real data.")
+--- hint
+In `mean_ct`, print `total` inside the loop. Where does `total` get reset to 0? That line should run only **once**, before the loop starts.
+--- hint
+In `highest`, print `type(values[0])`. The values are strings, so `max` compares them alphabetically. Build a list of floats first (a loop that appends `float(v)` for each value, or `[float(v) for v in values]`), then take the max of that.
+--- solution
+def mean_ct(values):
+    total = 0
+    for v in values:
+        total = total + float(v)
+    return total / len(values)
+
+
+def highest(values):
+    numbers = [float(v) for v in values]
+    return max(numbers)
+
+
+cts = ["9.8", "10.2", "9.95"]
+print("mean:", mean_ct(cts))
+print("highest:", highest(cts))
+--- explain
+- `total = 0` was **inside** the loop, so it was reset every time and only the last value survived. Moving it above the loop fixes it.
+- `max()` of strings compares them like words in a dictionary, so `"9.8"` beat `"10.2"`. Converting to `float` first makes it compare numbers.
+
+=== lesson try_except
+title: try / except: surviving messy data
+minutes: 12
+--- text
+Real data is messy. Someone typed `n/a`, the instrument wrote `error`, a colleague's computer used a **decimal comma** (`0,521`). If you call `float()` on these, your program crashes with a `ValueError`.
+
+`try` / `except` lets you say: *"try this; if this particular error happens, do that instead."*
+
+```python
+text = "n/a"
+try:
+    value = float(text)
+    print("got", value)
+except ValueError:
+    print("not a number:", repr(text))
+```
+
+How it works:
+
+1. Python runs the lines inside `try:`.
+2. If a `ValueError` happens, it jumps straight to the `except ValueError:` block instead of crashing.
+3. If nothing goes wrong, the `except` block is skipped.
+
+Always name the error you expect (`except ValueError:`). A bare `except:` catches *everything*, including your own typos, and hides real bugs.
+
+You can catch other errors the same way:
+
+```python
+try:
+    f = open("run4.csv")
+except FileNotFoundError:
+    print("run4.csv isn't there yet, skipping it")
+```
+
+A useful pattern for cleaning data: **fix what you can, reject what you can't, and count the rejects** so you know how much data you lost.
+
+> **In the lab:** never silently drop data. A report that says "9 values used, 2 rejected" is honest; one that quietly ignores bad readings is not.
+--- example
+raw = ["0.512", " 0.498 ", "n/a", "0,530", "1.2e-1", "error"]
+good = []
+bad = 0
+for text in raw:
+    text = text.strip().replace(",", ".")
+    try:
+        good.append(float(text))
+    except ValueError:
+        print("rejected:", repr(text))
+        bad += 1
+print("good:", good)
+print(bad, "rejected")
+--- task
+`messy_measurements.txt` holds OD600 values typed by hand during a long day. Clean it up:
+
+1. Open the file and loop over its lines.
+2. **Skip** (silently, without counting them) blank lines and lines starting with `#`.
+3. Strip spaces and replace a decimal comma with a point, so `0,521` becomes `0.521`.
+4. Use `try` / `except ValueError` to convert each value with `float()`. Valid numbers (including `1.2e-1`) go into a list called `values`; for each one that fails, add 1 to a counter called `rejected`.
+5. Print how many values you kept, how many you rejected, and their mean.
+--- starter
+values = []
+rejected = 0
+
+with open("messy_measurements.txt") as f:
+    for line in f:
+        line = line.strip()
+        values.append(float(line))
+
+print(len(values), "values kept,", rejected, "rejected")
+--- check
+expected = [0.512, 0.498, 0.530, 0.507, 0.521, 0.515, 0.509, 0.12, 0.488]
+vals = ns.get("values")
+if not isinstance(vals, list):
+    fail("Collect the good numbers in a list called values.")
+if any(not isinstance(v, (int, float)) for v in vals):
+    fail("values should contain numbers (floats), not text. Append float(...) of each line.")
+if "rejected" not in ns or not isinstance(ns["rejected"], int):
+    fail("Count the bad lines in a variable called rejected (start it at 0).")
+if 0.521 not in [round(v, 3) for v in vals]:
+    fail("0,521 is missing from values. Replace the comma with a point before converting: line.replace(',', '.').")
+if 0.12 not in [round(v, 3) for v in vals]:
+    fail("1.2e-1 is missing from values. It is a valid number (0.12) — float() understands scientific notation.")
+if sorted(round(v, 3) for v in vals) != sorted(expected):
+    fail(f"values has {len(vals)} numbers; there should be {len(expected)}. Print each line with repr() to see which ones are going where.")
+if ns["rejected"] != 2:
+    if ns["rejected"] > 2:
+        fail(f"rejected is {ns['rejected']}, but only 'n/a' and 'error' are bad values. Skip blank lines and # comments before trying float(), without counting them.")
+    fail(f"rejected is {ns['rejected']}; 'n/a' and 'error' should both be counted. Add 1 to rejected inside the except block.")
+if "9" not in out or "2" not in out:
+    fail("Print how many values you kept (9) and how many you rejected (2).")
+ok("9 values kept, 2 rejected, mean ≈ 0.467. Cleaning hand-typed data is half the job in many real analyses.")
+--- hint
+Inside the loop, start with `if line == "" or line.startswith("#"): continue` to skip blanks and comments.
+--- hint
+Then `line = line.replace(",", ".")`, and put the conversion in a `try:` block: `values.append(float(line))`. In `except ValueError:`, do `rejected += 1`.
+--- hint
+For the mean: `sum(values) / len(values)`.
+--- solution
+values = []
+rejected = 0
+
+with open("messy_measurements.txt") as f:
+    for line in f:
+        line = line.strip()
+        if line == "" or line.startswith("#"):
+            continue
+        line = line.replace(",", ".")
+        try:
+            values.append(float(line))
+        except ValueError:
+            rejected += 1
+
+print(len(values), "values kept,", rejected, "rejected")
+print(f"mean OD600: {sum(values) / len(values):.3f}")
+
+=== lesson raise_errors
+title: Raising your own errors
+minutes: 10
+--- text
+So far Python raised the errors. You can raise them too, with `raise`. Why would you want your program to crash on purpose?
+
+Because a **loud, clear error now** is far better than a **quiet wrong answer later**. If someone passes a protein sequence to your DNA tool, it should stop and say so, rather than calculate a meaningless GC content.
+
+```python
+def dilution_volume(stock, final, volume):
+    if stock <= 0:
+        raise ValueError(f"Stock concentration must be positive, got {stock}")
+    return final * volume / stock
+```
+
+`raise ValueError("message")` stops the function immediately and creates the same kind of error you saw earlier, with **your** message. Write the message for the person who will see it: say what was wrong and what value caused it.
+
+Whoever calls your function can catch it with `try` / `except`, and read the message with `as e`:
+
+```python
+try:
+    dilution_volume(0, 0.5, 20)
+except ValueError as e:
+    print("Problem:", e)
+```
+
+Pick the error type that fits: `ValueError` for a bad value (the most common), `TypeError` for the wrong type of thing.
+
+> **In the lab:** this is like a pre-flight check on an instrument. The machine refuses to start a run if the plate is in the wrong way round, instead of producing a plate of garbage.
+--- example
+def dilution_volume(stock, final, volume):
+    if stock <= 0:
+        raise ValueError(f"Stock concentration must be positive, got {stock}")
+    if final > stock:
+        raise ValueError(f"Can't dilute {stock} mM up to {final} mM")
+    return final * volume / stock
+
+
+print(dilution_volume(10, 0.5, 20), "mL")
+
+try:
+    dilution_volume(0, 0.5, 20)
+except ValueError as e:
+    print("Problem:", e)
+
+try:
+    dilution_volume(1, 5, 20)
+except ValueError as e:
+    print("Problem:", e)
+--- task
+Write a function `validate_dna(seq)` that checks a DNA sequence before it goes into the rest of a pipeline.
+
+1. Convert `seq` to upper case, so `"atgc"` is accepted.
+2. If the sequence is empty, `raise ValueError(...)` with a message saying it is empty.
+3. Loop over the bases with their positions. If any base is not `A`, `C`, `G` or `T`, raise a `ValueError` whose message **includes the bad character** (and ideally its position), for example `Invalid base 'N' at position 4`.
+4. If everything is fine, **return** the upper-case sequence.
+5. Below the function, test it with `try` / `except ValueError as e` on a good sequence and on a bad one, printing the result or the error message.
+--- starter
+def validate_dna(seq):
+    # 1. upper case
+    # 2. empty?
+    # 3. check every base
+    # 4. return the cleaned sequence
+    return seq
+
+
+print(validate_dna("atgGCC"))
+--- check
+import random
+f = ns.get("validate_dna")
+if not callable(f):
+    fail("Define a function called validate_dna(seq).")
+for good in ["ATGC", "atgc", "AtGcCGTA", "A", "GGGGCCCCAAAATTTT"]:
+    try:
+        r = f(good)
+    except Exception as e:
+        fail(f"validate_dna({good!r}) raised {type(e).__name__}: {e}, but that is a valid DNA sequence.")
+    if r != good.upper():
+        fail(f"validate_dna({good!r}) returned {r!r}; it should return {good.upper()!r} (the upper-case sequence).")
+for bad, ch in [("ATGNC", "N"), ("ATGXC", "X"), ("AUGC", "U"), ("ATG CC", " "), ("MKTAYIAK", "M"), ("ACGT5", "5")]:
+    try:
+        f(bad)
+    except ValueError as e:
+        msg = str(e)
+        if not msg.strip():
+            fail(f"validate_dna({bad!r}) raised a ValueError with no message. Give it a message that says what went wrong.")
+        if ch != " " and ch not in msg and ch.lower() not in msg:
+            fail(f"validate_dna({bad!r}) raised: {msg!r}. Include the bad character ({ch!r}) in the message so the user knows what to fix.")
+    except Exception as e:
+        fail(f"validate_dna({bad!r}) raised {type(e).__name__}; use raise ValueError(...) for a bad base.")
+    else:
+        fail(f"validate_dna({bad!r}) didn't raise an error, but {ch!r} is not a DNA base.")
+try:
+    f("")
+except ValueError as e:
+    pass
+except Exception as e:
+    fail(f"validate_dna('') raised {type(e).__name__}; raise a ValueError for an empty sequence.")
+else:
+    fail("validate_dna('') should raise a ValueError: an empty sequence is a mistake, not a valid input.")
+if not out.strip():
+    fail("Test your function below its definition and print the results (use try / except ValueError as e for the bad one).")
+ok("Your function refuses bad input loudly and clearly. Every tool you build should guard its front door like this.")
+--- hint
+Start with `seq = seq.upper()` and `if seq == "": raise ValueError("Empty sequence")`.
+--- hint
+Loop over positions with `for i in range(len(seq)):` and look at `base = seq[i]`. Then `if base not in "ACGT":` means you found a bad one.
+--- hint
+The raise line can be `raise ValueError(f"Invalid base {base!r} at position {i + 1}")` (people count from 1). After the loop, `return seq`.
+--- solution
+def validate_dna(seq):
+    seq = seq.upper()
+    if seq == "":
+        raise ValueError("Empty sequence: nothing to check")
+    for i in range(len(seq)):
+        base = seq[i]
+        if base not in "ACGT":
+            raise ValueError(f"Invalid base {base!r} at position {i + 1}")
+    return seq
+
+
+print(validate_dna("atgGCC"))
+
+for s in ["ATGCGT", "ATGNNC"]:
+    try:
+        print(s, "->", validate_dna(s))
+    except ValueError as e:
+        print(s, "-> rejected:", e)
