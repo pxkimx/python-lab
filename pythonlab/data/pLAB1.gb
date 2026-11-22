@@ -1,0 +1,84 @@
+LOCUS       pLAB1                   2131 bp    DNA     circular SYN 22-NOV-2026
+DEFINITION  pLAB1 synthetic expression plasmid (teaching example, not a real
+            sequence).
+ACCESSION   pLAB1
+VERSION     pLAB1
+KEYWORDS    .
+SOURCE      synthetic construct
+  ORGANISM  synthetic construct
+            other sequences; artificial sequences.
+FEATURES             Location/Qualifiers
+     source          1..2131
+                     /organism="synthetic construct"
+                     /mol_type="other DNA"
+     promoter        61..96
+                     /label="tac promoter (synthetic)"
+                     /note="drives gfp_like"
+     RBS             109..114
+                     /label="RBS"
+     CDS             122..841
+                     /gene="gfpL"
+                     /product="GFP-like reporter (synthetic)"
+                     /codon_start=1
+                     /transl_table=11
+                     /translation="MLTLLLHSVVLGLILPGWVQATSLWPMDLAAVVIIRYILVFVLIA
+                     PYGPLTTLPLLAKWPASTRGISRATLGLVTSFNALAAALCSDNYGTVRFISNILVPDSN
+                     VCGYLSSRSLSVAVSRATTGELVSNSKTRNCTPLAIHLYLIESCWCIRRRHGRIHTVLA
+                     PQRLVTSRGMGFRRPTPPLGPLQFTWMSTHCSVYSGLRELLPHYSCHNTQAMQTKFRWA
+                     KGCFQSCAEIRGHYFKN"
+     CDS             complement(922..1785)
+                     /gene="bla"
+                     /product="beta-lactamase-like (synthetic)"
+                     /codon_start=1
+                     /transl_table=11
+                     /translation="MDSLLTSRLSPLGLPSGARPNTTVISTSSGQMHRSRIFLDMFQPK
+                     PLLILKITRKNQMDEVGGSPHFRVAKSCAVYRLLSYSDCGGINRPTSEAAGLKYVLEGN
+                     VITIVIVLLPLGVAATRIVQEKNQGGGHLLLTCILLNRSLRQILIDRLFTSLCGICLNK
+                     LRQRPHSKVSTCGWHPPFDPRQKTSHLIILSPFCYAWLDVKVRVAHKCTLPHVLIGQDP
+                     RSIWLIWFRRSTPTMIECVRRLPPNQLTLASIQMRRFSSNNGCLDKPCSSLMTSLGLVA
+                     VRDKVM"
+     CDS             1856..2041
+                     /gene="hisT"
+                     /product="His-tag test construct (synthetic)"
+                     /codon_start=1
+                     /transl_table=11
+                     /translation="MAHTMAGTTLDPIAKHLFACLIMFGQNLGRIGCINPRGSYVLILQ
+                     SIIVHFLSIRGFRPIL"
+ORIGIN
+        1 cgtcggaggt acatgattgg aagaaaacct ggcgcctttg cacatctctt aatctcagtc
+       61 ttgacaatta atcatcggct cgtataatgt gtggaaactt aaaatagcag gaggagagac
+      121 aatgctcact ctcttgctcc atagcgtcgt actcggcctt atattaccgg gctgggtcca
+      181 ggctacctcc ctttggccga tggacctggc ggccgttgtc ataattcgat acatactggt
+      241 atttgttcta atagcaccct acggtccctt gaccacgcta cccctcttgg ccaaatggcc
+      301 cgcttcaact cgaggtatat ctcgggcgac cttaggtcta gtaaccagct ttaacgcact
+      361 agctgccgca ctctgtagcg acaactacgg tacggtcaga tttatatcta acatcctggt
+      421 gccagactca aatgtatgcg gatatctttc atctagaagc ctttcggtgg ccgtgagcag
+      481 agccactaca ggcgaactcg tgtctaatag taagacgcgt aactgcacac cattggccat
+      541 acacctttac cttattgaat cttgttggtg catacgtcgc cgacatggac ggatccatac
+      601 tgtgttagct ccgcaaagac tagtcacgtc taggggaatg gggtttcgac gcccgacccc
+      661 gcccctaggg cctcttcagt tcacttggat gtctacccac tgcagtgtct attccggctt
+      721 acgcgaactt ctgccacact acagttgcca caacacccaa gccatgcaaa ctaaatttcg
+      781 ctgggccaag gggtgtttcc aaagttgtgc ggaaatacgt ggacactact ttaagaactg
+      841 acttctactg atactccaag agcctcgtaa ttaagtattg caatagctgc agaagtgcta
+      901 accaacgact tgggaaatgt attacataac cttgtcacgc acagctacta agccaaggct
+      961 cgtcatcaac gatgaacaag gtttatctag gcaaccgttg ttagaggaga aacgtcgcat
+     1021 ttggatcgac gccagagtca attgatttgg cggaaggcgg cggacgcact caatcatggt
+     1081 tggggtactt ctacgaaacc agatcagcca tatgctccta gggtcctgtc caatcaagac
+     1141 gtgtggtaga gtacacttgt gagccacacg tacctttacg tctaaccacg catagcagaa
+     1201 cggactaaga ataattaagt gggacgtctt ttgccgggga tcaaaaggcg ggtgccaacc
+     1261 acaagtggag actttggaat gtggtctctg acggagtttg ttgaggcaga taccgcaaag
+     1321 tgaagtgaaa agtctatcta ttaatatttg acgcaatgaa cggtttaaca atatgcaagt
+     1381 tagtagaagg tggcccccgc cttgattttt ctcctggaca attcttgtag cggccacgcc
+     1441 gagaggcagc aagactatta caattgtaat gacatttcct tccaggacgt atttgaggcc
+     1501 cgccgcctcg gacgtgggtc tgttgatccc gccgcaatct gaataggaca gaagtctata
+     1561 taccgcgcag gacttagcta ctctaaaatg aggagaacct ccgacttcat ccatctggtt
+     1621 ctttcgggta attttcagta tcagtagagg tttgggctgg aacatgtcca agaaaatacg
+     1681 gctacggtgc atttgtccag aggaggtgct aatgactgta gtatttggtc gcgcacctga
+     1741 tggcaacccc agaggggaca gccgtgacgt taatagactg tccatgcgct aggtggttcg
+     1801 ttcttggcgg agttgcggct atagcagcgt cacgaatgct cgactttcgc acttgatggc
+     1861 tcacactatg gcggggacga cacttgatcc tatcgcaaaa cacctattcg cttgcctaat
+     1921 catgttcggt cagaacctgg gccgcattgg atgtatcaac ccacgcggca gttacgtcct
+     1981 gatattgcag tcaatcatcg tgcacttcct gagtatccgc ggattcagac ctatattgta
+     2041 atcaccacgc cttcaatagg ctaacataaa gcggttgaca acgaccgggt cttatgacgt
+     2101 cgtttcgagt ggatttgtct tcacgtcata t
+//

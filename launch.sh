@@ -3,7 +3,7 @@
 #   MODE=gui       notifications and an alert dialog on failure (used by the .app)
 #   MODE=terminal  prints everything (default)
 # First run creates a private Python environment in ~/Library/Application Support/Python Lab
-# and installs numpy, pandas and matplotlib there (needs internet once).
+# and installs numpy, pandas, matplotlib and Biopython there (needs internet once).
 set -u
 MODE="${MODE:-terminal}"
 APP_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -50,9 +50,15 @@ if [ ! -x "$VENV/bin/python" ]; then
   note "First start: setting up (about a minute)…"
   "$BASE" -m venv "$VENV" >>"$LOG" 2>&1 || fail "Could not create the Python environment."
   "$VENV/bin/python" -m pip install --quiet -r "$APP_DIR/requirements.txt" >>"$LOG" 2>&1 \
-    || { rm -rf "$VENV"; fail "Could not install numpy, pandas and matplotlib (is the Mac online?)."; }
+    || { rm -rf "$VENV"; fail "Could not install numpy, pandas, matplotlib and Biopython (is the Mac online?)."; }
   # draw one figure now so matplotlib builds its font cache here, not during the first lesson
   MPLBACKEND=Agg MPLCONFIGDIR="$HOME_DIR/mplconfig" "$VENV/bin/python" -c "import matplotlib.pyplot as p; p.plot([1]); p.savefig('/dev/null', format='png')" >>"$LOG" 2>&1
+fi
+# A newer version may need packages an older environment lacks (0.2.0 added Biopython): install them in place.
+if ! "$VENV/bin/python" -c "import numpy, pandas, matplotlib, Bio" 2>/dev/null; then
+  note "Installing new packages for this version…"
+  "$VENV/bin/python" -m pip install --quiet -r "$APP_DIR/requirements.txt" >>"$LOG" 2>&1 \
+    || log "Could not install all packages (offline?); lessons that need them will say so."
 fi
 "$VENV/bin/python" -c "import numpy, pandas, matplotlib" 2>>"$LOG" \
   || { rm -rf "$VENV"; fail "The Python environment was damaged and has been reset. Open the app again."; }

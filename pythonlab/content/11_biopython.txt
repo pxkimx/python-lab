@@ -1,0 +1,562 @@
+@chapter Biopython and NCBI
+@blurb The standard toolkit for sequence work: Seq objects, any genetic code, FASTA and GenBank files, NCBI searches and aligning a Sanger read.
+@icon dna
+
+=== lesson bio_seq
+title: Seq objects and genetic codes
+minutes: 9
+--- text
+You have written reverse complements and translations by hand. That was worth doing once — now meet **Biopython**, the library most bioinformaticians use for this every day. It is installed in Python Lab.
+
+A `Seq` behaves like a string (you can `len()` it, slice it, loop over it) but knows biology:
+
+```python
+from Bio.Seq import Seq
+
+dna = Seq("ATGGCCATTGTAATGGGCCGCTGA")
+print(dna.complement())
+print(dna.reverse_complement())
+print(dna.transcribe())        # DNA -> mRNA (T becomes U)
+print(dna.translate())         # protein; '*' marks a stop
+```
+
+`translate()` has useful options:
+
+- `to_stop=True` stops at the first stop codon (and leaves the `*` out)
+- `table=…` picks the **genetic code**: NCBI numbers them, and `1` (the standard code) is the default
+
+| Table | Used by | Difference from the standard code |
+|---|---|---|
+| 1 | most nuclear genes | — |
+| 2 | vertebrate mitochondria | `AGA`/`AGG` stop, `ATA` = Met, `TGA` = Trp |
+| 4 | *Mycoplasma*, *Spiroplasma* | `TGA` = Trp |
+| 11 | bacteria, archaea, plastids | same codons as 1 (different start codons) |
+
+GC content comes from `Bio.SeqUtils`:
+
+```python
+from Bio.SeqUtils import gc_fraction
+print(gc_fraction("ATGGCC"))   # 0.6667 -> a fraction, multiply by 100 for %
+```
+
+> **In the lab:** translating a *Mycoplasma* gene with the standard code gives a protein that "stops" in the middle at every `TGA`. Picking the right table is the difference between a broken ORF and the real protein.
+--- example
+from Bio.Seq import Seq
+from Bio.SeqUtils import gc_fraction
+
+dna = Seq("ATGGCCATTGTAATGGGCCGCTGA")
+print("revcomp :", dna.reverse_complement())
+print("mRNA    :", dna.transcribe())
+print("protein :", dna.translate())
+print("to stop :", dna.translate(to_stop=True))
+print(f"GC      : {gc_fraction(dna) * 100:.1f} %")
+--- task
+A gene from *Mycoplasma genitalium* starts like this:
+
+`ATGGCTTGAAAATGGTGACTGTAA`
+
+1. Store it as a `Seq` in a variable called `gene`.
+2. Translate it with the **standard** code into `standard` (keep the `*`s, don't use `to_stop`).
+3. Translate it with the ***Mycoplasma*** code (table 4) into `mycoplasma`.
+4. Store its GC content **in percent**, rounded to 1 decimal place, in `gc`.
+5. Print all three.
+--- starter
+from Bio.Seq import Seq
+from Bio.SeqUtils import gc_fraction
+
+--- check
+from Bio.Seq import Seq
+for name in ("gene", "standard", "mycoplasma", "gc"):
+    if name not in ns:
+        fail(f"Create a variable called {name}.")
+if str(ns["gene"]) != "ATGGCTTGAAAATGGTGACTGTAA":
+    fail("gene should hold exactly ATGGCTTGAAAATGGTGACTGTAA.")
+if not isinstance(ns["gene"], Seq):
+    fail("Make gene a Seq: gene = Seq(\"ATG...\").")
+if str(ns["standard"]) != "MA*KW*L*":
+    if str(ns["standard"]) == "MA":
+        fail("standard stopped at the first stop codon. Leave out to_stop=True for this one, so you can see where the stops fall.")
+    fail(f"standard is {ns['standard']}. Use gene.translate() with no table.")
+if str(ns["mycoplasma"]) != "MAWKWWL*":
+    fail(f"mycoplasma is {ns['mycoplasma']}. Use gene.translate(table=4).")
+try:
+    gcv = float(ns["gc"])
+except (TypeError, ValueError):
+    fail("gc should be a number.")
+if abs(gcv - 37.5) > 0.05:
+    if abs(gcv - 0.375) < 0.001:
+        fail("gc is a fraction (0.375). Multiply by 100 to get a percentage.")
+    fail(f"gc is {gcv}. Use gc_fraction(gene) * 100 and round to 1 decimal.")
+if "MAWKWWL" not in out:
+    fail("Now print standard, mycoplasma and gc.")
+ok("Standard code: MA*KW*L* — three fake stops. Table 4: MAWKWWL — a real protein. This is exactly the kind of reassignment tools like Codon Atlas detect.")
+--- hint
+`gene.translate()` uses the standard code; `gene.translate(table=4)` uses the Mycoplasma code.
+--- hint
+`gc = round(gc_fraction(gene) * 100, 1)`
+--- solution
+from Bio.Seq import Seq
+from Bio.SeqUtils import gc_fraction
+
+gene = Seq("ATGGCTTGAAAATGGTGACTGTAA")
+standard = gene.translate()
+mycoplasma = gene.translate(table=4)
+gc = round(gc_fraction(gene) * 100, 1)
+print("standard  :", standard)
+print("mycoplasma:", mycoplasma)
+print("GC %      :", gc)
+
+=== lesson seqio_fasta
+title: Reading and writing FASTA with SeqIO
+minutes: 9
+--- text
+In chapter 7 you wrote a FASTA parser yourself. `Bio.SeqIO` does it in one line, for FASTA, FASTQ, GenBank and about 40 other formats:
+
+```python
+from Bio import SeqIO
+
+for record in SeqIO.parse("sequences.fasta", "fasta"):
+    print(record.id, len(record.seq))
+```
+
+Each **record** (a `SeqRecord`) has:
+
+| Attribute | What it is |
+|---|---|
+| `record.id` | the first word of the header (`lmnA_frag`) |
+| `record.description` | the whole header line |
+| `record.seq` | the sequence, as a `Seq` (so `.translate()` etc. work) |
+
+`SeqIO.parse` reads **many** records; `SeqIO.read` reads a file that holds **exactly one**.
+
+Writing is just as short: give `SeqIO.write` a list of records, a file name and a format.
+
+```python
+long_ones = [r for r in SeqIO.parse("sequences.fasta", "fasta") if len(r.seq) > 500]
+SeqIO.write(long_ones, "long.fasta", "fasta")
+```
+
+> **In the lab:** the same three lines convert formats — `SeqIO.parse(..., "fastq")` then `SeqIO.write(..., "fasta")` turns sequencing reads into a FASTA file.
+--- example
+from Bio import SeqIO
+
+for record in SeqIO.parse("sequences.fasta", "fasta"):
+    protein = record.seq.translate(to_stop=True)
+    print(f"{record.id:<10} {len(record.seq):>4} bp  {len(protein):>4} aa   {record.description}")
+--- task
+Using `SeqIO` on `sequences.fasta`:
+
+1. Build a dictionary `lengths` that maps each record's **id** to its length in bp.
+2. Write every record that is **at least 500 bp** long to a new file called `long_genes.fasta` (FASTA format).
+3. Print how many records you wrote.
+--- starter
+from Bio import SeqIO
+
+lengths = {}
+
+--- check
+import os
+from Bio import SeqIO
+expected = {r.id: len(r.seq) for r in SeqIO.parse("sequences.fasta", "fasta")}
+got = ns.get("lengths")
+if not isinstance(got, dict) or not got:
+    fail("lengths should be a dictionary like {'lmnA_frag': 426, ...}.")
+if set(got) != set(expected):
+    extra = [k for k in got if k not in expected]
+    if extra and any(" " in str(k) for k in extra):
+        fail("Use record.id (the first word of the header) as the key, not record.description.")
+    fail(f"lengths should have one key per record: {sorted(expected)}.")
+for k, v in expected.items():
+    if got[k] != v:
+        fail(f"lengths['{k}'] is {got[k]}, but that record is {v} bp. Use len(record.seq).")
+if not os.path.exists("long_genes.fasta"):
+    fail("Write the long records to long_genes.fasta with SeqIO.write(records, 'long_genes.fasta', 'fasta').")
+written = {r.id: len(r.seq) for r in SeqIO.parse("long_genes.fasta", "fasta")}
+want = {k for k, v in expected.items() if v >= 500}
+if set(written) != want:
+    fail(f"long_genes.fasta holds {sorted(written)}, but should hold {sorted(want)} (records >= 500 bp).")
+if str(len(want)) not in out:
+    fail("Finally, print how many records you wrote.")
+ok(f"{len(want)} genes written. SeqIO turns every sequence file into the same kind of record, so the rest of your code never cares about the format.")
+--- hint
+`lengths[record.id] = len(record.seq)` inside a `for record in SeqIO.parse(...)` loop.
+--- hint
+Collect the long records in a list, then `SeqIO.write(long_records, "long_genes.fasta", "fasta")`. It returns the number of records written.
+--- solution
+from Bio import SeqIO
+
+lengths = {}
+long_records = []
+for record in SeqIO.parse("sequences.fasta", "fasta"):
+    lengths[record.id] = len(record.seq)
+    if len(record.seq) >= 500:
+        long_records.append(record)
+
+n = SeqIO.write(long_records, "long_genes.fasta", "fasta")
+print(lengths)
+print(n, "records written")
+
+=== lesson genbank_features
+title: GenBank files and their features
+minutes: 12
+--- text
+A **GenBank** file is a sequence plus its annotation: which stretch is a promoter, a CDS, a primer site. Plasmid maps from Addgene and SnapGene exports use the same format. `pLAB1.gb` in your workspace is a small synthetic expression plasmid — open it in the Playground's Files list to see what the text looks like.
+
+```python
+from Bio import SeqIO
+
+plasmid = SeqIO.read("pLAB1.gb", "genbank")
+print(plasmid.description, len(plasmid), "bp")
+print(plasmid.annotations["topology"])        # circular
+```
+
+`plasmid.features` is a list of **features**. Each one has:
+
+| Attribute | Example |
+|---|---|
+| `feature.type` | `"CDS"`, `"promoter"`, `"RBS"` |
+| `feature.location.start` / `.end` | `121`, `841` — **0-based**, end not included (like slicing) |
+| `feature.location.strand` | `1` (forward) or `-1` (reverse) |
+| `feature.qualifiers` | a dict of **lists**: `feature.qualifiers["gene"][0]` → `"gfpL"` |
+
+The best part: `feature.extract(plasmid.seq)` cuts out the feature's sequence **and reverse-complements it if it is on the minus strand**, so you can translate it directly.
+
+```python
+for f in plasmid.features:
+    if f.type == "CDS":
+        cds = f.extract(plasmid.seq)
+        print(f.qualifiers["gene"][0], cds.translate(table=11, to_stop=True)[:20])
+```
+
+> **In the lab:** GenBank shows positions counted from 1 (`122..841`); Biopython counts from 0 (`121`). When you report a position to a person, add 1 to `start`.
+--- example
+from Bio import SeqIO
+
+plasmid = SeqIO.read("pLAB1.gb", "genbank")
+print(plasmid.id, len(plasmid), "bp", plasmid.annotations["topology"])
+for f in plasmid.features:
+    label = f.qualifiers.get("gene", f.qualifiers.get("label", ["?"]))[0]
+    strand = "+" if f.location.strand == 1 else "-"
+    print(f"{f.type:<9} {label:<26} {int(f.location.start) + 1:>5}..{int(f.location.end):<5} {strand}")
+--- task
+From `pLAB1.gb`:
+
+1. Make a list `cds` with one tuple per **CDS** feature: `(gene, start, end, strand)`, where `gene` is the gene name, `start` is the **1-based** first position (as GenBank prints it), `end` is the last position, and `strand` is `1` or `-1`. Keep the order of the file.
+2. Store the protein of the **bla** gene in `bla_protein`: extract its sequence, translate with table 11, stop at the first stop codon, and convert it to a plain `str`.
+3. Check it against the file: set `matches` to `True` if `bla_protein` equals the gene's `/translation` qualifier.
+--- starter
+from Bio import SeqIO
+
+plasmid = SeqIO.read("pLAB1.gb", "genbank")
+cds = []
+
+--- check
+from Bio import SeqIO
+p = SeqIO.read("pLAB1.gb", "genbank")
+want = [(f.qualifiers["gene"][0], int(f.location.start) + 1, int(f.location.end), f.location.strand) for f in p.features if f.type == "CDS"]
+got = ns.get("cds")
+if not isinstance(got, list) or not got:
+    fail("cds should be a list of tuples like ('gfpL', 122, 841, 1).")
+try:
+    got = [tuple(x) for x in got]
+except TypeError:
+    fail("Each item in cds should be a tuple (gene, start, end, strand).")
+if len(got) != len(want):
+    fail(f"There are {len(want)} CDS features; your list has {len(got)}. Keep only features whose type == 'CDS'.")
+for g, w in zip(got, want):
+    if len(g) != 4:
+        fail("Each tuple needs 4 parts: (gene, start, end, strand).")
+    if g[0] != w[0]:
+        fail(f"Expected gene {w[0]!r}, found {g[0]!r}. Use feature.qualifiers['gene'][0] (qualifiers hold lists).")
+    if int(g[1]) == w[1] - 1:
+        fail("Your starts are 0-based. Add 1 to feature.location.start so they match the GenBank file.")
+    if (int(g[1]), int(g[2]), int(g[3])) != w[1:]:
+        fail(f"For {w[0]} expected start {w[1]}, end {w[2]}, strand {w[3]}; you have {g[1:]}.")
+bla = [f for f in p.features if f.type == "CDS" and f.qualifiers["gene"][0] == "bla"][0]
+true_prot = bla.qualifiers["translation"][0]
+bp = ns.get("bla_protein")
+if not isinstance(bp, str):
+    fail("bla_protein should be a plain str: wrap the protein in str(...).")
+if bp != true_prot:
+    if bp == str(p.seq[bla.location.start:bla.location.end].translate(table=11, to_stop=True)):
+        fail("You sliced the forward strand, but bla is on the minus strand. Use feature.extract(plasmid.seq), which reverse-complements it for you.")
+    fail("bla_protein doesn't match the annotated protein. Extract with feature.extract(plasmid.seq), then .translate(table=11, to_stop=True).")
+if ns.get("matches") is not True:
+    fail("Set matches = (bla_protein == the gene's qualifiers['translation'][0]).")
+ok("Your protein matches the annotation. extract() handling the minus strand is one of the quiet reasons people reach for Biopython.")
+--- hint
+Loop over `plasmid.features`, keep `f.type == "CDS"`, and append `(f.qualifiers["gene"][0], int(f.location.start) + 1, int(f.location.end), f.location.strand)`.
+--- hint
+Find the bla feature in the same loop. `f.extract(plasmid.seq).translate(table=11, to_stop=True)` gives its protein; wrap it in `str()`.
+--- hint
+`matches = bla_protein == bla_feature.qualifiers["translation"][0]`
+--- solution
+from Bio import SeqIO
+
+plasmid = SeqIO.read("pLAB1.gb", "genbank")
+cds = []
+for f in plasmid.features:
+    if f.type == "CDS":
+        gene = f.qualifiers["gene"][0]
+        cds.append((gene, int(f.location.start) + 1, int(f.location.end), f.location.strand))
+        if gene == "bla":
+            bla_feature = f
+
+bla_protein = str(bla_feature.extract(plasmid.seq).translate(table=11, to_stop=True))
+matches = bla_protein == bla_feature.qualifiers["translation"][0]
+print(cds)
+print(bla_protein[:40], "...")
+print("matches annotation:", matches)
+--- explain
+The minus-strand gene is the trap: `plasmid.seq[start:end]` gives the *top* strand, which reads the gene backwards. `extract()` uses the feature's strand and reverse-complements for you, so the same line works for every CDS.
+
+=== lesson entrez_search
+title: Searching NCBI with Entrez
+minutes: 12
+--- text
+**Entrez** is NCBI's search system (the same one behind the PubMed and Nucleotide web pages). `Bio.Entrez` lets a program search and download records, so you can fetch 200 sequences without 200 clicks.
+
+The two calls you will use most:
+
+| Call | Does | Gives back |
+|---|---|---|
+| `Entrez.esearch(db=..., term=..., retmax=...)` | searches a database | record **IDs** |
+| `Entrez.efetch(db=..., id=..., rettype="gb", retmode="text")` | downloads records | GenBank / FASTA text |
+
+A search term uses the same **field tags** as the NCBI website: `LMNA[Gene]`, `"Homo sapiens"[Organism]`, `refseq[filter]`, combined with `AND`, `OR`, `NOT`.
+
+This is what a real search and download look like. It needs internet; press **Try it** to run it live (please put your own e-mail address in — NCBI asks every program to say who is calling):
+
+```python
+from Bio import Entrez, SeqIO
+
+Entrez.email = "your.name@university.edu"
+handle = Entrez.esearch(db="nucleotide", term='LMNA[Gene] AND "Homo sapiens"[Organism] AND refseq[filter]', retmax=3)
+result = Entrez.read(handle)
+print(result["Count"], "records; first IDs:", result["IdList"])
+
+handle = Entrez.efetch(db="nucleotide", id=result["IdList"][0], rettype="gb", retmode="text")
+record = SeqIO.read(handle, "genbank")
+print(record.id, record.description, len(record), "bp")
+```
+
+Rules of the road: set `Entrez.email`, make **no more than 3 requests per second** (10 with a free NCBI API key in `Entrez.api_key`), and download large sets in batches.
+
+`Entrez.read` turns NCBI's XML reply into Python dicts and lists. So that this lesson works offline, your workspace has a **saved reply**, `esearch_lmna.xml` — real NCBI layout, placeholder IDs.
+
+> **In the lab:** a 10-line script that pulls every RefSeq lamin transcript, or every paper on a gene since 2020, saves an afternoon — and it can be re-run next month with one click.
+--- example
+from Bio import Entrez
+
+with open("esearch_lmna.xml", "rb") as handle:
+    result = Entrez.read(handle)
+
+print("query :", result["QueryTranslation"])
+print("found :", result["Count"], "records")
+print("IDs   :", list(result["IdList"]))
+--- task
+1. Build a dictionary `params` with the arguments you would pass to `Entrez.esearch` to find **human LMNA RefSeq records in the nucleotide database, at most 5**: keys `db`, `term` and `retmax`. The term must combine `LMNA[Gene]`, `"Homo sapiens"[Organism]` and `refseq[filter]` with `AND`.
+2. Read the saved reply `esearch_lmna.xml` with `Entrez.read`. Store the total number of matches as an **int** in `count` and the IDs as a **list of str** in `ids`.
+3. Print both.
+
+(`Entrez.esearch(**params)` would send the real search — the `**` unpacks the dictionary into keyword arguments.)
+--- starter
+from Bio import Entrez
+
+params = {}
+
+--- check
+p = ns.get("params")
+if not isinstance(p, dict):
+    fail("params should be a dictionary: {'db': ..., 'term': ..., 'retmax': ...}.")
+for k in ("db", "term", "retmax"):
+    if k not in p:
+        fail(f"params needs a {k!r} key.")
+if str(p["db"]).lower() != "nucleotide":
+    fail("Search the 'nucleotide' database.")
+term = str(p["term"])
+norm = term.replace("'", '"').lower()
+for piece, label in (("lmna[gene]", "LMNA[Gene]"), ('"homo sapiens"[organism]', '"Homo sapiens"[Organism]'), ("refseq[filter]", "refseq[filter]")):
+    if piece not in norm:
+        if piece.startswith('"homo') and "homo sapiens[organism]" in norm:
+            fail('Put Homo sapiens in quotes: "Homo sapiens"[Organism] — without them NCBI reads two separate words.')
+        fail(f"The term is missing {label}.")
+if norm.count(" and ") < 2:
+    fail("Join the three parts with AND (capital letters are the convention).")
+try:
+    if int(p["retmax"]) != 5:
+        fail("retmax should be 5.")
+except (TypeError, ValueError):
+    fail("retmax should be the number 5.")
+if ns.get("count") != 7 or not isinstance(ns.get("count"), int):
+    if str(ns.get("count")) == "7":
+        fail("count is the text '7'. Entrez gives numbers as strings — convert with int().")
+    fail("count should be the total number of matches in the saved reply (result['Count']), as an int.")
+ids = ns.get("ids")
+if not isinstance(ids, list) or ids != ["900000101", "900000102", "900000103", "900000104", "900000105"]:
+    if isinstance(ids, list) and len(ids) == 5 and all(str(i).isdigit() for i in ids):
+        fail("ids should be a list of strings, e.g. list(result['IdList']).")
+    fail("ids should be list(result['IdList']) from the saved reply.")
+if "900000101" not in out:
+    fail("Print count and ids.")
+ok("That is a complete NCBI search. Swap the saved file for Entrez.esearch(**params) and the same code runs live.")
+--- hint
+`params = {"db": "nucleotide", "term": 'LMNA[Gene] AND "Homo sapiens"[Organism] AND refseq[filter]', "retmax": 5}` — note the single quotes around the term, so the double quotes inside are kept.
+--- hint
+`result = Entrez.read(open("esearch_lmna.xml", "rb"))`, then `int(result["Count"])` and `list(result["IdList"])`.
+--- solution
+from Bio import Entrez
+
+params = {
+    "db": "nucleotide",
+    "term": 'LMNA[Gene] AND "Homo sapiens"[Organism] AND refseq[filter]',
+    "retmax": 5,
+}
+
+with open("esearch_lmna.xml", "rb") as handle:
+    result = Entrez.read(handle)
+
+count = int(result["Count"])
+ids = list(result["IdList"])
+print(count, "matches")
+print(ids)
+--- explain
+Everything NCBI returns arrives as text, even numbers — hence `int(result["Count"])`. With internet, `result = Entrez.read(Entrez.esearch(**params))` replaces the saved file and the rest is unchanged.
+
+=== lesson align_sanger
+title: Checking a clone: aligning a Sanger read
+minutes: 14
+--- text
+You sequenced colony 7 to check your GFP construct. Is the insert correct? Line the read up against the reference and look for differences — that is a **pairwise alignment**.
+
+```python
+from Bio import Align
+
+aligner = Align.PairwiseAligner()
+aligner.mode = "local"            # the read covers only part of the gene
+aligner.match_score = 2
+aligner.mismatch_score = -3
+aligner.open_gap_score = -5
+aligner.extend_gap_score = -2
+
+alignment = aligner.align(reference, read)[0]   # the best alignment
+print(alignment)
+```
+
+`print(alignment)` draws it with `|` for matches and `.` for mismatches. To work with it in code, `alignment.aligned` gives the **matching blocks** as pairs of coordinates:
+
+```python
+for (r_start, r_end), (q_start, q_end) in zip(*alignment.aligned):
+    # reference[r_start:r_end] lines up with read[q_start:q_end]
+    ...
+```
+
+Inside a block, compare the two strings letter by letter to find substitutions. Between blocks are gaps (insertions or deletions).
+
+Mutations are written as **reference base, position, new base**, counting from 1: `G181A`.
+
+> **In the lab:** this is the core of every "verify my clone" tool. Trim the low-quality ends of the read first (the FASTQ quality-filter project) — most "mutations" in raw Sanger reads are just noise at the ends.
+--- example
+from Bio import Align
+from Bio.Seq import Seq
+
+reference = Seq("ATGGCTAGCAAAGGAGAAGAACTTTTCACT")
+read      = Seq(     "TAGCAAAGGTGAAGAACTTTT")        # one change, ends trimmed
+
+aligner = Align.PairwiseAligner()
+aligner.mode = "local"
+aligner.match_score, aligner.mismatch_score = 2, -3
+aligner.open_gap_score, aligner.extend_gap_score = -5, -2
+alignment = aligner.align(reference, read)[0]
+print(alignment)
+
+for (r0, r1), (q0, q1) in zip(*alignment.aligned):
+    for i in range(r1 - r0):
+        if reference[r0 + i] != read[q0 + i]:
+            print(f"{reference[r0 + i]}{r0 + i + 1}{read[q0 + i]}")
+--- task
+`sanger_read.fasta` holds the read from colony 7; the reference is the **gfpL** CDS in `pLAB1.gb`.
+
+1. Load the read, and extract the gfpL CDS from the plasmid as `reference`.
+2. Align them with a **local** `PairwiseAligner` (scores as in the text).
+3. Make a list `mutations` of every substitution, written like `G181A`, with positions **counted from 1 along the gfpL CDS**.
+4. For each mutation, work out the amino-acid change with table 11 and store them in a list `protein_changes`, written like `A61T` (old amino acid, codon number from 1, new amino acid). If the amino acid doesn't change, write it like `L61L`.
+5. Print both lists.
+--- starter
+from Bio import Align, SeqIO
+
+plasmid = SeqIO.read("pLAB1.gb", "genbank")
+read = SeqIO.read("sanger_read.fasta", "fasta").seq
+
+--- check
+from Bio import Align, SeqIO
+p = SeqIO.read("pLAB1.gb", "genbank")
+ref = [f for f in p.features if f.type == "CDS" and f.qualifiers["gene"][0] == "gfpL"][0].extract(p.seq)
+rd = SeqIO.read("sanger_read.fasta", "fasta").seq
+a = Align.PairwiseAligner()
+a.mode = "local"
+a.match_score, a.mismatch_score, a.open_gap_score, a.extend_gap_score = 2, -3, -5, -2
+al = a.align(ref, rd)[0]
+want, wantp = [], []
+for (r0, r1), (q0, q1) in zip(*al.aligned):
+    for i in range(r1 - r0):
+        if ref[r0 + i] != rd[q0 + i]:
+            pos = r0 + i
+            want.append(f"{ref[pos]}{pos + 1}{rd[q0 + i]}")
+            c = pos // 3
+            old = ref[c * 3:c * 3 + 3]
+            new = old[:pos % 3] + rd[q0 + i] + old[pos % 3 + 1:]
+            wantp.append(f"{old.translate(table=11)}{c + 1}{new.translate(table=11)}")
+m = ns.get("mutations")
+if not isinstance(m, list):
+    fail("mutations should be a list of strings like 'G181A'.")
+m = [str(x) for x in m]
+if m != want:
+    if len(m) == len(want) and all(x[1:-1].isdigit() and int(x[1:-1]) + 1 == int(y[1:-1]) for x, y in zip(m, want)):
+        fail("Your positions are 0-based. Add 1 so they count from the first base of the CDS.")
+    if len(m) > len(want) + 3:
+        fail(f"You found {len(m)} differences. Compare only inside the aligned blocks (alignment.aligned), using the read's own coordinates for the read.")
+    if not m:
+        fail("No mutations found. Loop over zip(*alignment.aligned) and compare reference[r0 + i] with read[q0 + i].")
+    fail(f"mutations should be {len(want)} substitution(s) along the gfpL CDS; yours: {m}. Did you align against the CDS (feature.extract), not the whole plasmid?")
+pc = ns.get("protein_changes")
+if not isinstance(pc, list) or [str(x) for x in pc] != wantp:
+    fail("protein_changes isn't right yet. Codon number = position // 3 + 1 (0-based position); rebuild the codon with the new base and translate old and new codons with table=11.")
+if want[0] not in out:
+    fail("Print mutations and protein_changes.")
+ok(f"Colony 7 carries {', '.join(want)} → {', '.join(wantp)}. You've just written the heart of a clone-verification tool.")
+--- hint
+`reference = feature.extract(plasmid.seq)` for the CDS whose `qualifiers["gene"][0] == "gfpL"`. Then `alignment = aligner.align(reference, read)[0]`.
+--- hint
+`for (r0, r1), (q0, q1) in zip(*alignment.aligned):` then `for i in range(r1 - r0):` compare `reference[r0 + i]` with `read[q0 + i]`. The 1-based position is `r0 + i + 1`.
+--- hint
+For a 0-based position `pos`: the codon index is `pos // 3`, its bases are `reference[c*3:c*3+3]`, and the changed base sits at `pos % 3` inside it.
+--- solution
+from Bio import Align, SeqIO
+
+plasmid = SeqIO.read("pLAB1.gb", "genbank")
+read = SeqIO.read("sanger_read.fasta", "fasta").seq
+gfp = [f for f in plasmid.features if f.type == "CDS" and f.qualifiers["gene"][0] == "gfpL"][0]
+reference = gfp.extract(plasmid.seq)
+
+aligner = Align.PairwiseAligner()
+aligner.mode = "local"
+aligner.match_score, aligner.mismatch_score = 2, -3
+aligner.open_gap_score, aligner.extend_gap_score = -5, -2
+alignment = aligner.align(reference, read)[0]
+
+mutations, protein_changes = [], []
+for (r0, r1), (q0, q1) in zip(*alignment.aligned):
+    for i in range(r1 - r0):
+        if reference[r0 + i] != read[q0 + i]:
+            pos = r0 + i
+            mutations.append(f"{reference[pos]}{pos + 1}{read[q0 + i]}")
+            c = pos // 3
+            old = reference[c * 3:c * 3 + 3]
+            new = old[:pos % 3] + read[q0 + i] + old[pos % 3 + 1:]
+            protein_changes.append(f"{old.translate(table=11)}{c + 1}{new.translate(table=11)}")
+
+print(mutations)
+print(protein_changes)
+--- explain
+Aligning against the CDS (not the whole plasmid) makes every position a CDS position, so `pos // 3` is directly the codon number. The local mode lets a read that covers only the middle of the gene align without being penalised for the missing ends.

@@ -53,8 +53,9 @@ FRIENDLY = {
                          "the Files list in the Playground shows what is there.",
     "AttributeError": "This kind of value doesn't have that method or attribute. "
                       "Check the spelling, or print(type(x)) to see what x really is.",
-    "ModuleNotFoundError": "That module isn't installed here. The standard library plus numpy, pandas "
-                           "and matplotlib are available.",
+    "ModuleNotFoundError": "That module isn't installed here. The standard library plus numpy, pandas, "
+                           "matplotlib and Biopython (import Bio) are available. If Biopython is missing, "
+                           "reopen Python Lab while online so it can install it.",
     "RecursionError": "A function kept calling itself without stopping.",
     "EOFError": "input() wanted another line. Type the program's input in the Input box (one answer per line).",
     "UnboundLocalError": "A variable was used inside a function before it got a value there.",

@@ -1,3 +1,4 @@
 numpy>=1.26,<3
 pandas>=2.0,<4
 matplotlib>=3.7,<4
+biopython>=1.81,<2

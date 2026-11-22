@@ -3,7 +3,7 @@
 An interactive course that teaches Python from the very first line up to writing your own lab
 tools. Every example comes from the bench: dilutions, DNA sequences, plate readers, qPCR,
 growth curves, FASTA/FASTQ files and expression tables. The code you write runs for real on
-this Mac (Python 3 with numpy, pandas and matplotlib), and each exercise checks itself.
+this Mac (Python 3 with numpy, pandas, matplotlib and Biopython), and each exercise checks itself.
 
 **Download for Mac:** https://paul-h-kim.com/software/python-lab (free, 0.5 MB; install steps on that page).
 
@@ -13,7 +13,7 @@ Double-click **Python Lab.app** (a copy is in `~/Desktop/Toolbox`). The first st
 private Python environment in `~/Library/Application Support/Python Lab/venv` (needs internet
 once, about a minute). Closing the window quits the program.
 
-- **Learn**: the course map. Eleven chapters plus seven projects, from `print()` to classes, command-line tools,
+- **Learn**: the course map. Twelve chapters plus seven projects, from `print()` through Biopython and NCBI to classes, command-line tools,
   testing and how a local web tool like the ones in the Toolbox works.
 - **Lesson**: the explanation and a runnable example on the left; an editor on the right.
   **Run** (⌘↵) shows the output, your variables and any plots; **Check** (⇧⌘↵) tests your

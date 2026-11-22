@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE eSearchResult PUBLIC "-//NLM//DTD esearch 20060628//EN" "https://eutils.ncbi.nlm.nih.gov/eutils/dtd/20060628/esearch.dtd">
+<!-- Teaching example saved for Python Lab: the layout of a real NCBI ESearch reply, with placeholder record IDs. -->
+<eSearchResult><Count>7</Count><RetMax>5</RetMax><RetStart>0</RetStart><IdList>
+<Id>900000101</Id>
+<Id>900000102</Id>
+<Id>900000103</Id>
+<Id>900000104</Id>
+<Id>900000105</Id>
+</IdList><TranslationSet><Translation>     <From>"Homo sapiens"[Organism]</From>     <To>"Homo sapiens"[Organism]</To>    </Translation></TranslationSet><QueryTranslation>LMNA[Gene] AND "Homo sapiens"[Organism] AND refseq[filter]</QueryTranslation></eSearchResult>

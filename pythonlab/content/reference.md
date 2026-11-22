@@ -224,6 +224,38 @@ slope, intercept = np.polyfit(conc, absorbance, 1)
 unknown = (a595 - intercept) / slope
 ```
 
+## Biopython
+
+```python
+from Bio.Seq import Seq
+from Bio.SeqUtils import gc_fraction
+dna = Seq("ATGGCCTGA")
+dna.reverse_complement(); dna.transcribe()
+dna.translate(to_stop=True)        # standard code
+dna.translate(table=4)             # Mycoplasma: TGA = Trp
+gc_fraction(dna) * 100             # GC %
+```
+
+```python
+from Bio import SeqIO
+for rec in SeqIO.parse("sequences.fasta", "fasta"):   # also "fastq", "genbank"
+    print(rec.id, len(rec.seq))
+first_two = list(SeqIO.parse("sequences.fasta", "fasta"))[:2]
+SeqIO.write(first_two, "out.fasta", "fasta")
+plasmid = SeqIO.read("pLAB1.gb", "genbank")             # exactly one record
+for f in plasmid.features:
+    if f.type == "CDS":
+        protein = f.extract(plasmid.seq).translate(table=11, to_stop=True)
+        print(f.qualifiers["gene"][0], protein[:30])
+```
+
+```python
+from Bio import Entrez                      # needs internet
+Entrez.email = "you@university.edu"         # required by NCBI; max 3 requests/s
+ids = Entrez.read(Entrez.esearch(db="nucleotide", term="LMNA[Gene]", retmax=5))["IdList"]
+gb = Entrez.efetch(db="nucleotide", id=ids[0], rettype="gb", retmode="text")
+```
+
 ## Where to go next
 
 - **Install Python on your Mac.** Download the installer from python.org, or `brew install python` if you use Homebrew. Check it in Terminal with `python3 --version`.
@@ -231,5 +263,5 @@ unknown = (a595 - intercept) / slope
 - **Install packages.** Make a project environment once with `python3 -m venv .venv`, activate it with `source .venv/bin/activate`, then `pip install pandas matplotlib`.
 - **VS Code.** A free editor with a Python extension: colours, autocompletion, a debugger and a built-in Terminal. Open your project folder and press the Run button.
 - **Jupyter.** `pip install jupyterlab`, then `jupyter lab`. Notebooks mix code, plots and notes, which suits exploring a new dataset.
-- **Biopython.** `pip install biopython` gives you `SeqIO.parse("file.fasta", "fasta")`, translation tables, GenBank parsing and NCBI access, so you don't need to write your own parsers.
+- **More Biopython.** Chapter 11 covers the basics; the free *Biopython Tutorial and Cookbook* (biopython.org) goes on to BLAST, phylogenetics, PDB structures and motifs.
 - **Ask Claude.** Describe the files you have and the result you want. Now you can read, check and change the code it writes.
