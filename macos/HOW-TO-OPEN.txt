@@ -13,7 +13,7 @@ by Paul H. Kim · https://paul-h-kim.com/software/python-lab
    You only need to do this once.
 
 3. The first start sets up Python's scientific libraries (numpy, pandas,
-   matplotlib) in ~/Library/Application Support/Python Lab. This needs internet
+   matplotlib, Biopython) in ~/Library/Application Support/Python Lab. This needs internet
    once and takes a minute or two. The course then opens in your web browser.
 
 Needs: a Mac with macOS 12 or newer and Python 3.9 or newer. Most Macs already
