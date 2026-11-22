@@ -35,7 +35,12 @@ cat > "$APP/Contents/Info.plist" <<PL
   <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
 PL
-PY="$(command -v python3)"
+# the icon needs Pillow: the app's own environment has it (matplotlib depends on it)
+PY=""
+for c in "$HOME/Library/Application Support/Python Lab/venv/bin/python" python3 /opt/anaconda3/bin/python3; do
+  "$c" -c "import PIL" 2>/dev/null && { PY="$c"; break; }
+done
+[ -n "$PY" ] || { echo "No Python with Pillow found: install it with  python3 -m pip install pillow"; exit 1; }
 "$PY" "$HERE/macos/make_icon.py" "$APP/Contents/Resources/AppIcon.icns"
 touch "$APP"
 echo "Built: $APP"
