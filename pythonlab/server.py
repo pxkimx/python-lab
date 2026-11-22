@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 import threading
@@ -267,6 +268,10 @@ def serve(port: int = DEFAULT_PORT, open_browser: bool = True) -> None:
 
     LIFE = Lifecycle(on_quit=quit_)
     LIFE.watch()
+    # quitting the Dock icon sends SIGTERM: stop the learner's running program too, not just the server
+    for sig in (signal.SIGTERM, signal.SIGHUP):
+        signal.signal(sig, lambda *_: quit_())
+    threading.Thread(target=execute.warm_font_cache, daemon=True, name="font-cache").start()
     url = f"http://localhost:{port}"
     print(f"Python Lab {__version__} at {url}", flush=True)
     if open_browser:

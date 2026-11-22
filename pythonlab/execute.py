@@ -18,6 +18,9 @@ WORKSPACE = HOME / "workspace"
 DATA = PKG / "data"
 RUNNER = PKG / "runner.py"
 
+MPLCONFIG = HOME / "mplconfig"
+FONT_CACHE_GRACE = 90.0   # matplotlib builds its font cache on the first draw (≈15 s); never count that as a hung program
+
 _live: set[subprocess.Popen] = set()
 _lock = threading.Lock()
 
@@ -41,6 +44,24 @@ def restore_file(rel: str) -> None:
     shutil.copy2(src, WORKSPACE / rel)
 
 
+def font_cache_ready() -> bool:
+    return any(MPLCONFIG.glob("fontlist-*.json"))
+
+
+def warm_font_cache() -> None:
+    """Draw one figure so matplotlib writes its font cache now, not during a learner's first plot."""
+    if font_cache_ready():
+        return
+    MPLCONFIG.mkdir(parents=True, exist_ok=True)
+    env = dict(os.environ, MPLBACKEND="Agg", MPLCONFIGDIR=str(MPLCONFIG))
+    try:
+        subprocess.run([sys.executable, "-I", "-c", "import io, matplotlib.pyplot as p; p.plot([1]); p.savefig(io.BytesIO(), format='png')"],
+                       env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                       timeout=180, start_new_session=True)
+    except (subprocess.SubprocessError, OSError):
+        pass
+
+
 def run_code(code: str, check: str | None = None, stdin: str = "", timeout: float = 15.0,
              cwd: Path | None = None) -> dict:
     cwd = cwd or ensure_workspace()
@@ -48,7 +69,9 @@ def run_code(code: str, check: str | None = None, stdin: str = "", timeout: floa
         job, res = Path(tmp) / "job.json", Path(tmp) / "result.json"
         job.write_text(json.dumps({"code": code, "check": check, "stdin": stdin}), encoding="utf-8")
         env = dict(os.environ, MPLBACKEND="Agg", PYTHONIOENCODING="utf-8", PYTHONDONTWRITEBYTECODE="1",
-                   MPLCONFIGDIR=str(HOME / "mplconfig"))
+                   MPLCONFIGDIR=str(MPLCONFIG))
+        if "matplotlib" in code and not font_cache_ready():
+            timeout = max(timeout, FONT_CACHE_GRACE)
         env.pop("PYTHONPATH", None)
         t0 = time.time()
         # -I: the workspace may hold the learner's own random.py or json.py; never let it shadow the runner's imports

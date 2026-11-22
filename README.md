@@ -13,7 +13,7 @@ Double-click **Python Lab.app** (a copy is in `~/Desktop/Toolbox`). The first st
 private Python environment in `~/Library/Application Support/Python Lab/venv` (needs internet
 once, about a minute). Closing the window quits the program.
 
-- **Learn**: the course map. Twelve chapters, from `print()` to classes, command-line tools,
+- **Learn**: the course map. Eleven chapters plus seven projects, from `print()` to classes, command-line tools,
   testing and how a local web tool like the ones in the Toolbox works.
 - **Lesson**: the explanation and a runnable example on the left; an editor on the right.
   **Run** (⌘↵) shows the output, your variables and any plots; **Check** (⇧⌘↵) tests your

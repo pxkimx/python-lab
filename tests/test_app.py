@@ -172,6 +172,39 @@ class QuitWhenClosed(unittest.TestCase):
             if p.poll() is None:
                 p.kill()
 
+    def test_sigterm_stops_running_learner_program(self):
+        import signal
+        import threading
+        port = free_port()
+        p = subprocess.Popen([sys.executable, "-m", "pythonlab.server", "--port", str(port), "--no-browser"], cwd=ROOT,
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        runners = lambda: set(subprocess.run(["pgrep", "-f", str(ROOT / "pythonlab" / "runner.py")],  # noqa: E731
+                                             capture_output=True, text=True).stdout.split())
+        before = runners()
+        try:
+            for _ in range(50):
+                try:
+                    socket.create_connection(("127.0.0.1", port), timeout=1).close()
+                    break
+                except OSError:
+                    time.sleep(0.1)
+            body = json.dumps({"code": "while True:\n    pass", "mode": "playground"}).encode()
+            req = urllib.request.Request(f"http://localhost:{port}/api/run", body, {"Content-Type": "application/json"})
+            threading.Thread(target=lambda: urllib.request.urlopen(req, timeout=60), daemon=True).start()
+            for _ in range(50):
+                new = runners() - before
+                if new:
+                    break
+                time.sleep(0.1)
+            self.assertTrue(new, "the learner program never started")
+            p.send_signal(signal.SIGTERM)
+            p.wait(timeout=5)
+            time.sleep(0.5)
+            self.assertFalse(runners() & new, "the learner program outlived the server")
+        finally:
+            if p.poll() is None:
+                p.kill()
+
 
 if __name__ == "__main__":
     unittest.main()

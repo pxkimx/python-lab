@@ -37,7 +37,7 @@ if [ -n "$RUNNING" ]; then
   log "Replacing older version $RUNNING."
   curl -s -m 2 -X POST "http://localhost:$PORT/api/quit" >/dev/null 2>&1; sleep 1.5
 elif lsof -nP -iTCP:"$PORT" -sTCP:LISTEN -t >/dev/null 2>&1; then
-  fail "Port $PORT is used by another program. Quit it, or start with another port: PL_PORT=8788 \"$0\""
+  fail "Port $PORT is used by another program. Quit it, or start with another port, for example: PL_PORT=8851 \"$0\""
 fi
 
 # Python: a private environment, created on first use.
